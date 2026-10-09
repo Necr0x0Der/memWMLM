@@ -116,3 +116,41 @@ Free generation accepts only an exact candidate after case/outer-punctuation
 normalization; it deliberately does not extract an answer from explanatory
 prose. That makes formatting failures visible rather than silently turning
 them into semantic successes.
+
+## Reset-pair writable-memory sanity check
+
+The first learned-memory experiment keeps Qwen frozen and resets memory for
+every bAbI pair. The source story is encoded, compressed by a trainable writer
+into key/value cells, then removed. The application question accesses only
+those cells through gated cross-attention injected into Qwen's final four
+decoder layers.
+
+Train the memory sidecar:
+
+```bash
+python3 scripts/train_babi_memory.py \
+  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
+  --output runs/babi-memory/reset-pair.pt \
+  --steps 2000 --batch-size 8
+```
+
+Evaluate its intended path and two causal controls:
+
+```bash
+python3 scripts/evaluate_babi_memory.py \
+  --checkpoint runs/babi-memory/reset-pair.pt \
+  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
+  --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
+  --memory-variant memory --scoring free_generation
+
+# The committed state belongs to a different example; performance should fall.
+python3 scripts/evaluate_babi_memory.py \
+  --checkpoint runs/babi-memory/reset-pair.pt \
+  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
+  --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
+  --memory-variant shuffled_memory --scoring free_generation
+```
+
+This is a source-to-application channel check, not a claim of durable memory:
+there is no state across examples, no automatic write policy, and no nonlinear
+expert module yet.

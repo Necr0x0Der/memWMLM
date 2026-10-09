@@ -64,9 +64,9 @@ Qwen operates in no-thinking mode for v0. Evaluation supports `candidate_likelih
 segment i = { key_i: [d_key], values_i: [n_value_tokens, d_value] }
 ```
 
-The writer produces all segment keys and values from source hidden states. No sparse allocation, persistent state, nonlinear expert function, or runtime SGD is needed in v0.
+The writer produces all segment keys and values from source hidden states. No sparse allocation, persistent state, nonlinear expert function, or runtime SGD is needed in v0. The first implementation uses one value vector per cell: learned write queries cross-attend to source states, then produce `N` per-example key/value pairs.
 
-The reader receives application hidden states as queries. It first attends across segment keys, then attends within the selected segment's value tokens (or uses a single-token control variant). Its output is injected through a gated residual/cross-attention path into selected axial layers.
+The reader receives application hidden states as queries and attends densely across the `N` cell keys/values. Its output is injected through a gated residual/cross-attention path into the final four axial layers. Gates are initialized near zero, so a fresh sidecar is close to frozen-Qwen behaviour. Later hierarchical segments may replace each value vector with several internal tokens without changing the source→state→reader boundary.
 
 A later nonlinear-expert implementation must preserve this outward contract where possible: writer produces resettable state; reader accepts queries and returns memory features.
 

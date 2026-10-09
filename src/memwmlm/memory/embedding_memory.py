@@ -57,7 +57,13 @@ class SourceWriter(nn.Module):
 class MemoryReader(nn.Module):
     """Query resettable memory cells from one axial hidden-state stream."""
 
-    def __init__(self, hidden_size: int, memory_width: int, heads: int) -> None:
+    def __init__(
+        self,
+        hidden_size: int,
+        memory_width: int,
+        heads: int,
+        gate_bias_init: float = -6.0,
+    ) -> None:
         super().__init__()
         if memory_width % heads:
             raise ValueError("memory_width must be divisible by heads")
@@ -65,7 +71,7 @@ class MemoryReader(nn.Module):
         self.attention = nn.MultiheadAttention(memory_width, heads, batch_first=True)
         self.output_projection = nn.Linear(memory_width, hidden_size, bias=False)
         # Start as almost-identical frozen Qwen; sigmoid(-6) ≈ 0.0025.
-        self.gate_bias = nn.Parameter(torch.tensor(-6.0))
+        self.gate_bias = nn.Parameter(torch.tensor(gate_bias_init))
         self.gate_projection = nn.Linear(hidden_size, 1, bias=False)
         nn.init.zeros_(self.gate_projection.weight)
 

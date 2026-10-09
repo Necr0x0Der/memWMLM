@@ -35,6 +35,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--writer-heads", type=int, default=8)
     parser.add_argument("--reader-heads", type=int, default=8)
     parser.add_argument("--injection-layers", type=int, default=4)
+    parser.add_argument("--gate-bias-init", type=float, default=-6.0)
+    parser.add_argument("--adam-beta1", type=float, default=0.9)
+    parser.add_argument("--adam-beta2", type=float, default=0.999)
+    parser.add_argument("--weight-decay", type=float, default=0.01)
+    parser.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=None,
+        help="Clip global sidecar gradient norm when positive; null disables clipping.",
+    )
     parser.add_argument("--log-every", type=int, default=50)
     parser.add_argument("--save-every", type=int, default=500)
     parser.set_defaults(**load_config_defaults(config_path_from_argv()))
@@ -65,11 +75,16 @@ def checkpoint_payload(
             "writer_heads": args.writer_heads,
             "reader_heads": args.reader_heads,
             "injection_layers": args.injection_layers,
+            "gate_bias_init": args.gate_bias_init,
         },
         "training_config": {
             "seed": args.seed,
             "batch_size": args.batch_size,
             "learning_rate": args.learning_rate,
+            "adam_beta1": args.adam_beta1,
+            "adam_beta2": args.adam_beta2,
+            "weight_decay": args.weight_decay,
+            "max_grad_norm": args.max_grad_norm,
         },
         "step": step,
         "sidecar_state_dict": model.trainable_state_dict(),
@@ -94,6 +109,12 @@ def main() -> None:
         raise ValueError("--train-file and --output are required, directly or through --config")
     if args.steps <= 0 or args.batch_size <= 0 or args.log_every <= 0:
         raise ValueError("steps, batch-size, and log-every must be positive")
+    if not 0 <= args.adam_beta1 < 1 or not 0 <= args.adam_beta2 < 1:
+        raise ValueError("Adam beta values must be in [0, 1)")
+    if args.weight_decay < 0:
+        raise ValueError("weight-decay must be non-negative")
+    if args.max_grad_norm is not None and args.max_grad_norm <= 0:
+        raise ValueError("max-grad-norm must be positive when set")
     if not torch.cuda.is_available() and args.device.startswith("cuda"):
         raise RuntimeError("CUDA is unavailable; pass --device cpu only for a small debug run")
 
@@ -114,12 +135,16 @@ def main() -> None:
             writer_heads=args.writer_heads,
             reader_heads=args.reader_heads,
             injection_layers=args.injection_layers,
+            gate_bias_init=args.gate_bias_init,
         ),
     ).to(device)
     model.train()
+    trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
-        (parameter for parameter in model.parameters() if parameter.requires_grad),
+        trainable_parameters,
         lr=args.learning_rate,
+        betas=(args.adam_beta1, args.adam_beta2),
+        weight_decay=args.weight_decay,
     )
     formatter = QwenChatPromptFormatter(tokenizer)
     rng = random.Random(args.seed)
@@ -138,15 +163,27 @@ def main() -> None:
         loss = causal_answer_loss(outputs.logits, batch.labels)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
+        grad_norm = torch.nn.utils.clip_grad_norm_(trainable_parameters, args.max_grad_norm) if args.max_grad_norm is not None else _grad_norm(trainable_parameters)
         optimizer.step()
 
         if step == 1 or step % args.log_every == 0:
-            print(json.dumps({"step": step, "loss": float(loss.detach())}, sort_keys=True), flush=True)
+            print(
+                json.dumps(
+                    {"step": step, "loss": float(loss.detach()), "grad_norm": float(grad_norm)},
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
         if step % args.save_every == 0:
             save_checkpoint(args.output, model, args, step, optimizer)
 
     save_checkpoint(args.output, model, args, args.steps, optimizer)
     model.close()
+
+
+def _grad_norm(parameters: list[torch.nn.Parameter]) -> torch.Tensor:
+    norms = [parameter.grad.detach().norm() for parameter in parameters if parameter.grad is not None]
+    return torch.linalg.vector_norm(torch.stack(norms)) if norms else torch.zeros(())
 
 
 if __name__ == "__main__":

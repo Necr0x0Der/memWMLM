@@ -19,6 +19,7 @@ class MemoryQwenConfig:
     writer_heads: int = 8
     reader_heads: int = 8
     injection_layers: int = 4
+    gate_bias_init: float = -6.0
 
 
 class FrozenQwenWithMemory(nn.Module):
@@ -55,6 +56,7 @@ class FrozenQwenWithMemory(nn.Module):
                     hidden_size=hidden_size,
                     memory_width=config.memory_width,
                     heads=config.reader_heads,
+                    gate_bias_init=config.gate_bias_init,
                 )
                 for index in self.layer_indices
             }

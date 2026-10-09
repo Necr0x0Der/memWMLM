@@ -135,7 +135,8 @@ python3 scripts/train_babi_memory.py \
 # Example override without editing the recorded configuration:
 python3 scripts/train_babi_memory.py \
   --config configs/experiment/babi_memory_train.yaml \
-  --learning-rate 1e-4 --steps 10000
+  --learning-rate 1e-4 --steps 10000 \
+  --gate-bias-init -2 --max-grad-norm 1.0
 ```
 
 Evaluate its intended path and two causal controls. By default the memory evaluator reports separate `train` and `test` objects; use `--split train` or `--split test` to run just one (and `--max-examples` limits each selected split):

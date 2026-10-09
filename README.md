@@ -125,31 +125,51 @@ into key/value cells, then removed. The application question accesses only
 those cells through gated cross-attention injected into Qwen's final four
 decoder layers.
 
-Train the memory sidecar:
+Train the memory sidecar. All model and training defaults live in a flat YAML
+config; explicit CLI flags override them:
 
 ```bash
 python3 scripts/train_babi_memory.py \
-  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
-  --output runs/babi-memory/reset-pair.pt \
-  --steps 2000 --batch-size 8
+  --config configs/experiment/babi_memory_train.yaml
+
+# Example override without editing the recorded configuration:
+python3 scripts/train_babi_memory.py \
+  --config configs/experiment/babi_memory_train.yaml \
+  --learning-rate 1e-4 --steps 10000
 ```
 
 Evaluate its intended path and two causal controls:
 
 ```bash
 python3 scripts/evaluate_babi_memory.py \
-  --checkpoint runs/babi-memory/reset-pair.pt \
-  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
-  --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
-  --memory-variant memory --scoring free_generation
+  --config configs/experiment/babi_memory_eval.yaml \
+  --checkpoint runs/babi-memory/reset-pair.pt
 
 # The committed state belongs to a different example; performance should fall.
 python3 scripts/evaluate_babi_memory.py \
+  --config configs/experiment/babi_memory_eval.yaml \
   --checkpoint runs/babi-memory/reset-pair.pt \
-  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
-  --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
-  --memory-variant shuffled_memory --scoring free_generation
+  --memory-variant shuffled_memory
 ```
+
+Inspect several random source/application pairs before interpreting aggregate
+accuracy. The debug runner prints the complete source story, application
+question, free continuation, and all candidate likelihoods:
+
+```bash
+python3 scripts/debug_babi_memory.py \
+  --config configs/experiment/babi_memory_train.yaml \
+  --checkpoint runs/babi-memory/reset-pair.pt \
+  --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
+  --examples 5 --max-new-tokens 16
+```
+
+The train config supplies `model` and `train_file`; evaluation/debug still need
+the checkpoint and test file because they vary per run. Training now includes
+Qwen's EOS token in the supervised answer continuation, so the sidecar has an
+explicit learned stop condition rather than only a location-word target. Reduce
+`--max-new-tokens` (for example to `4`) to establish whether unexpectedly long
+generations, rather than semantic errors, dominate free-generation evaluation.
 
 This is a source-to-application channel check, not a claim of durable memory:
 there is no state across examples, no automatic write policy, and no nonlinear

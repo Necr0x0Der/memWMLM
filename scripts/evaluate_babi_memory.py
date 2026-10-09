@@ -17,13 +17,15 @@ from memwmlm.memory.embedding_memory import MemoryState
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
+from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--train-file", type=Path, required=True)
-    parser.add_argument("--evaluation-file", type=Path, required=True)
+    parser.add_argument("--config", type=Path, default=None, help="Flat YAML defaults; CLI flags override it.")
+    parser.add_argument("--checkpoint", type=Path, default=None)
+    parser.add_argument("--train-file", type=Path, default=None)
+    parser.add_argument("--evaluation-file", type=Path, default=None)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--scoring", choices=("candidate_likelihood", "free_generation"), default="candidate_likelihood")
@@ -32,11 +34,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-examples", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0, help="Only used for shuffled_memory.")
     parser.add_argument("--output", type=Path, default=None)
-    return parser.parse_args()
+    parser.set_defaults(**load_config_defaults(config_path_from_argv()))
+    args = parser.parse_args()
+    for name in ("checkpoint", "train_file", "evaluation_file", "output"):
+        value = getattr(args, name)
+        if value is not None:
+            setattr(args, name, Path(value))
+    return args
 
 
 def main() -> None:
     args = parse_args()
+    if args.checkpoint is None or args.train_file is None or args.evaluation_file is None:
+        raise ValueError("--checkpoint, --train-file, and --evaluation-file are required directly or through --config")
     if args.max_examples is not None and args.max_examples <= 0:
         raise ValueError("--max-examples must be positive")
     if args.max_new_tokens <= 0:

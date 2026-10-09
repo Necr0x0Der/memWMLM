@@ -15,13 +15,15 @@ from memwmlm.data.babi import load_babi_task
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
 from memwmlm.training.reset_pair import causal_answer_loss, make_reset_pair_batch
+from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=None, help="Flat YAML defaults; CLI flags override it.")
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
-    parser.add_argument("--train-file", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True, help="Output .pt checkpoint path.")
+    parser.add_argument("--train-file", type=Path, default=None)
+    parser.add_argument("--output", type=Path, default=None, help="Output .pt checkpoint path.")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--steps", type=int, default=2_000)
@@ -35,7 +37,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--injection-layers", type=int, default=4)
     parser.add_argument("--log-every", type=int, default=50)
     parser.add_argument("--save-every", type=int, default=500)
-    return parser.parse_args()
+    parser.set_defaults(**load_config_defaults(config_path_from_argv()))
+    args = parser.parse_args()
+    if args.train_file is not None:
+        args.train_file = Path(args.train_file)
+    if args.output is not None:
+        args.output = Path(args.output)
+    return args
 
 
 def torch_dtype(name: str) -> torch.dtype:
@@ -82,6 +90,8 @@ def save_checkpoint(
 
 def main() -> None:
     args = parse_args()
+    if args.train_file is None or args.output is None:
+        raise ValueError("--train-file and --output are required, directly or through --config")
     if args.steps <= 0 or args.batch_size <= 0 or args.log_every <= 0:
         raise ValueError("steps, batch-size, and log-every must be positive")
     if not torch.cuda.is_available() and args.device.startswith("cuda"):

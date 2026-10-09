@@ -1,12 +1,20 @@
 # First writable-memory sanity check. Qwen weights remain frozen.
+# Relative paths resolve from the repository root when used from its scripts/.
+model: Qwen/Qwen3-1.7B
+train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt
+output: runs/babi-memory/reset-pair.pt
+device: cuda
+dtype: bfloat16
+
 memory_width: 512
 memory_cells: 32
 writer_heads: 8
 reader_heads: 8
 injection_layers: 4
 
-# These are consumed as CLI defaults today; keep them versioned beside the
-# architecture so later config composition does not change the experiment.
 steps: 2000
 batch_size: 8
 learning_rate: 0.0003
+seed: 0
+log_every: 50
+save_every: 500

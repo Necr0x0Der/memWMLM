@@ -27,6 +27,7 @@ def make_reset_pair_batch(
     tokenizer: object,
     formatter: QwenChatPromptFormatter,
     device: torch.device,
+    append_eos: bool = True,
 ) -> ResetPairBatch:
     """Create source/application inputs with loss only on application answers."""
 
@@ -41,6 +42,11 @@ def make_reset_pair_batch(
         target_ids = tokenizer(example.answer, add_special_tokens=False).input_ids
         if not target_ids:
             raise ValueError(f"Empty answer tokenization for {example.answer!r}")
+        if append_eos:
+            eos_id = tokenizer.eos_token_id
+            if eos_id is None:
+                raise ValueError("append_eos requires tokenizer.eos_token_id")
+            target_ids = [*target_ids, int(eos_id)]
         sequences.append(prefix_ids + target_ids)
         label_starts.append(len(prefix_ids))
 

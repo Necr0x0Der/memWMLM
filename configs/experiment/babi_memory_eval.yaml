@@ -1,0 +1,12 @@
+# Defaults for evaluating/debugging a trained reset-pair sidecar.
+model: Qwen/Qwen3-1.7B
+train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt
+evaluation_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt
+device: cuda
+dtype: bfloat16
+
+scoring: free_generation
+max_new_tokens: 8
+memory_variant: memory
+max_examples: null
+seed: 0

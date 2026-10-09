@@ -40,9 +40,10 @@ class CausalCandidateScorer:
     def score(self, prefix: str, candidates: Sequence[str]) -> list[CandidatePrediction]:
         """Return summed token log-likelihood for each continuation.
 
-        A leading space is deliberately included before each candidate: the prompt
-        ends in ``Answer:`` and bAbI answers are lexical continuations, not part of
-        the prompt's final token. Candidate-specific tokenization is preserved.
+        Candidates are tokenized exactly as supplied. The Qwen chat formatter
+        places the generation boundary after the assistant marker/newline, so a
+        forced leading space would score a different continuation from greedy
+        free generation. Candidate-specific tokenization is preserved.
         """
 
         if not candidates:
@@ -54,7 +55,7 @@ class CausalCandidateScorer:
 
         encoded: list[tuple[str, list[int]]] = []
         for candidate in candidates:
-            suffix_ids = self.tokenizer(" " + candidate, add_special_tokens=False).input_ids
+            suffix_ids = self.tokenizer(candidate, add_special_tokens=False).input_ids
             if not suffix_ids:
                 raise ValueError(f"Tokenizer produced an empty candidate: {candidate!r}")
             encoded.append((candidate, suffix_ids))

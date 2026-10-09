@@ -31,6 +31,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scoring", choices=("candidate_likelihood", "free_generation"), default="candidate_likelihood")
     parser.add_argument("--max-new-tokens", type=int, default=16)
     parser.add_argument("--memory-variant", choices=("memory", "shuffled_memory", "null_memory"), default="memory")
+    parser.add_argument(
+        "--split",
+        choices=("train", "test", "both"),
+        default="both",
+        help="Evaluate train, test, or both splits; --max-examples applies to each selected split.",
+    )
     parser.add_argument("--max-examples", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0, help="Only used for shuffled_memory.")
     parser.add_argument("--output", type=Path, default=None)
@@ -67,29 +73,36 @@ def main() -> None:
     model.eval()
 
     train_examples = load_babi_task(args.train_file)
-    examples = load_babi_task(args.evaluation_file)
-    if args.max_examples is not None:
-        examples = examples[: args.max_examples]
+    test_examples = load_babi_task(args.evaluation_file)
     candidates = answer_vocabulary(train_examples)
-
-    if args.memory_variant == "memory":
-        result = evaluate_memory_babi(
-            model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens
-        )
-    else:
-        result = evaluate_control_variant(
-            model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens,
-            memory_variant=args.memory_variant, seed=args.seed,
-        )
+    split_examples = {"train": train_examples, "test": test_examples}
+    selected_splits = ("train", "test") if args.split == "both" else (args.split,)
+    split_results = {}
+    for split in selected_splits:
+        examples = split_examples[split]
+        if args.max_examples is not None:
+            examples = examples[: args.max_examples]
+        if args.memory_variant == "memory":
+            result = evaluate_memory_babi(
+                model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens
+            )
+        else:
+            result = evaluate_control_variant(
+                model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens,
+                memory_variant=args.memory_variant, seed=args.seed,
+            )
+        split_results[split] = {
+            "examples": result.examples,
+            "correct": result.correct,
+            "accuracy": result.accuracy,
+        }
     payload = {
         "checkpoint": str(args.checkpoint),
         "model": backbone_name,
         "memory_variant": args.memory_variant,
         "scoring": args.scoring,
         "max_new_tokens": args.max_new_tokens if args.scoring == "free_generation" else None,
-        "examples": result.examples,
-        "correct": result.correct,
-        "accuracy": result.accuracy,
+        "splits": split_results,
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.output is not None:

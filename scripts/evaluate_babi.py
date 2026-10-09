@@ -29,6 +29,12 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Whether application sees the source in Qwen's normal token context.",
     )
+    parser.add_argument(
+        "--split",
+        choices=("train", "test", "both"),
+        default="test",
+        help="Evaluate train, test, or both; --max-examples applies to each selected split.",
+    )
     parser.add_argument("--max-examples", type=int, default=None)
     parser.add_argument(
         "--scoring",
@@ -63,11 +69,9 @@ def resolve_dtype(name: str) -> str | torch.dtype:
 def main() -> None:
     args = parse_args()
     train_examples = load_babi_task(args.train_file)
-    examples = load_babi_task(args.evaluation_file)
-    if args.max_examples is not None:
-        if args.max_examples <= 0:
-            raise ValueError("--max-examples must be positive")
-        examples = examples[: args.max_examples]
+    test_examples = load_babi_task(args.evaluation_file)
+    if args.max_examples is not None and args.max_examples <= 0:
+        raise ValueError("--max-examples must be positive")
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token_id is None:
@@ -84,13 +88,25 @@ def main() -> None:
         if args.scoring == "candidate_likelihood"
         else FreeGenerationScorer(model, tokenizer, max_new_tokens=args.max_new_tokens)
     )
-    result = evaluate_babi_variant(
-        scorer=scorer,
-        examples=examples,
-        candidates=answer_vocabulary(train_examples),
-        variant=BabiVariant(args.variant),
-        prompt_formatter=QwenChatPromptFormatter(tokenizer),
-    )
+    selected_splits = ("train", "test") if args.split == "both" else (args.split,)
+    split_examples = {"train": train_examples, "test": test_examples}
+    split_results = {}
+    for split in selected_splits:
+        examples = split_examples[split]
+        if args.max_examples is not None:
+            examples = examples[: args.max_examples]
+        result = evaluate_babi_variant(
+            scorer=scorer,
+            examples=examples,
+            candidates=answer_vocabulary(train_examples),
+            variant=BabiVariant(args.variant),
+            prompt_formatter=QwenChatPromptFormatter(tokenizer),
+        )
+        split_results[split] = {
+            "examples": result.examples,
+            "correct": result.correct,
+            "accuracy": result.accuracy,
+        }
     payload = {
         "model": args.model,
         "train_file": str(args.train_file),
@@ -99,9 +115,7 @@ def main() -> None:
         "variant": result.variant.value,
         "scoring": args.scoring,
         "max_new_tokens": args.max_new_tokens if args.scoring == "free_generation" else None,
-        "examples": result.examples,
-        "correct": result.correct,
-        "accuracy": result.accuracy,
+        "splits": split_results,
     }
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.output is not None:

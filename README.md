@@ -138,7 +138,7 @@ python3 scripts/train_babi_memory.py \
   --learning-rate 1e-4 --steps 10000
 ```
 
-Evaluate its intended path and two causal controls:
+Evaluate its intended path and two causal controls. By default the memory evaluator reports separate `train` and `test` objects; use `--split train` or `--split test` to run just one (and `--max-examples` limits each selected split):
 
 ```bash
 python3 scripts/evaluate_babi_memory.py \

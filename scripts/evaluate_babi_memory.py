@@ -71,6 +71,19 @@ def main() -> None:
     model = FrozenQwenWithMemory(qwen, config).to(args.device)
     model.load_trainable_state_dict(checkpoint["sidecar_state_dict"])
     model.eval()
+    print(
+        json.dumps(
+            {
+                "event": "model_loaded",
+                "checkpoint_step": checkpoint["step"],
+                "memory_config": model.config.__dict__,
+                "lora": model.lora_summary(),
+                "trainable_parameters": model.trainable_parameter_summary(),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
 
     train_examples = load_babi_task(args.train_file)
     test_examples = load_babi_task(args.evaluation_file)

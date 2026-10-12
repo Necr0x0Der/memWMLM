@@ -164,6 +164,18 @@ def main() -> None:
     )
     formatter = QwenChatPromptFormatter(tokenizer)
     rng = random.Random(args.seed)
+    print(
+        json.dumps(
+            {
+                "event": "model_initialized",
+                "memory_config": model.config.__dict__,
+                "lora": model.lora_summary(),
+                "trainable_parameters": model.trainable_parameter_summary(),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
 
     for step in range(1, args.steps + 1):
         selected = rng.choices(examples, k=args.batch_size)

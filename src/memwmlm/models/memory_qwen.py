@@ -102,6 +102,43 @@ class FrozenQwenWithMemory(nn.Module):
     def device(self) -> torch.device:
         return self.qwen.get_input_embeddings().weight.device
 
+    def lora_summary(self) -> dict[str, object]:
+        """Return a serializable assertion of installed interface-LoRA state."""
+
+        trainable_names = [
+            name for name, parameter in self.named_parameters()
+            if parameter.requires_grad and ".lora_" in name
+        ]
+        trainable_parameters = sum(
+            parameter.numel() for name, parameter in self.named_parameters()
+            if parameter.requires_grad and ".lora_" in name
+        )
+        return {
+            "enabled": bool(self.lora_projections),
+            "rank": self.config.lora_rank,
+            "alpha": self.config.lora_alpha,
+            "dropout": self.config.lora_dropout,
+            "target_layers": list(self.layer_indices) if self.lora_projections else [],
+            "target_projections": ["q_proj", "o_proj"] if self.lora_projections else [],
+            "projection_modules": len(self.lora_projections),
+            "trainable_parameters": trainable_parameters,
+            "trainable_parameter_tensors": len(trainable_names),
+        }
+
+    def trainable_parameter_summary(self) -> dict[str, int]:
+        """Report trainable sidecar/LoRA parameter counts for experiment logs."""
+
+        lora_parameters = sum(
+            parameter.numel() for name, parameter in self.named_parameters()
+            if parameter.requires_grad and ".lora_" in name
+        )
+        total = sum(parameter.numel() for parameter in self.parameters() if parameter.requires_grad)
+        return {
+            "total": total,
+            "lora": lora_parameters,
+            "memory_sidecar": total - lora_parameters,
+        }
+
     def write_memory(self, source_input_ids: Tensor, source_attention_mask: Tensor) -> MemoryState:
         """Run frozen source encoding and create per-example runtime memory."""
 

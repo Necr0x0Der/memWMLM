@@ -54,6 +54,19 @@ def load_model(args: argparse.Namespace) -> tuple[FrozenQwenWithMemory, object, 
     model = FrozenQwenWithMemory(qwen, MemoryQwenConfig(**checkpoint["memory_config"])).to(args.device)
     model.load_trainable_state_dict(checkpoint["sidecar_state_dict"])
     model.eval()
+    print(
+        json.dumps(
+            {
+                "event": "model_loaded",
+                "checkpoint_step": checkpoint["step"],
+                "memory_config": model.config.__dict__,
+                "lora": model.lora_summary(),
+                "trainable_parameters": model.trainable_parameter_summary(),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
+    )
     return model, tokenizer, checkpoint
 
 

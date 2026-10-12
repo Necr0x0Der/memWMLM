@@ -172,6 +172,25 @@ explicit learned stop condition rather than only a location-word target. Reduce
 `--max-new-tokens` (for example to `4`) to establish whether unexpectedly long
 generations, rather than semantic errors, dominate free-generation evaluation.
 
+### Application-only LoRA ablation
+
+`configs/experiment/babi_memory_lora.yaml` enables rank-8 LoRA in `q_proj` and
+`o_proj` of the same four upper Qwen layers used by memory injection. It is
+**off** during the source pass and **on** only for the application pass; base
+Qwen weights remain frozen. This tests whether Qwen can learn the memory
+interface rather than requiring the sidecar alone to steer a fixed processor.
+
+```bash
+python3 scripts/train_babi_memory.py \
+  --config configs/experiment/babi_memory_lora.yaml
+```
+
+For the no-memory capacity control, do not introduce a separate training mode:
+train the same architecture with, for example, `--memory-cells 1 --memory-width
+32` (or evaluate `--memory-variant null_memory`). The essential comparison is
+whether LoRA improves real `memory` substantially more than this reduced/null
+memory condition.
+
 This is a source-to-application channel check, not a claim of durable memory:
 there is no state across examples, no automatic write policy, and no nonlinear
 expert module yet.

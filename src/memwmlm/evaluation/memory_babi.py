@@ -104,7 +104,7 @@ def _generate(
     encoded = {name: value.to(model.device) for name, value in encoded.items()}
     # Generation invokes multiple model forwards. Hooks need the same state for
     # every step, so keep the reader scope active around generate().
-    with model.read_memory(memory):
+    with model.read_memory(memory), model.application_lora(True):
         output_ids = model.qwen.generate(
             **encoded,
             do_sample=False,

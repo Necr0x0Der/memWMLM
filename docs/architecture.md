@@ -52,7 +52,7 @@ class AxialModel(Protocol):
     def score_application(self, tokenized_application, memory_read=None) -> CandidateScores: ...
 ```
 
-Implementation details may use Hugging Face hooks or a small Qwen block wrapper, but the training code must not depend directly on Qwen internals. The first reader injection points are selected upper Transformer blocks. Memory paths are initialized so that an empty memory yields the unmodified frozen-model behavior.
+Implementation details may use Hugging Face hooks or a small Qwen block wrapper, but the training code must not depend directly on Qwen internals. The first reader injection points are selected upper Transformer blocks. Memory paths are initialized so that an empty memory yields the unmodified frozen-model behavior. An optional later interface ablation applies trainable rank-limited LoRA only to `q_proj` and `o_proj` of these same upper blocks. LoRA is disabled during source encoding and enabled only in the application pass; base Qwen weights remain frozen.
 
 Qwen operates in no-thinking mode for v0. Evaluation supports `candidate_likelihood` (the primary diagnostic) and `free_generation` (greedy decoding with exact-candidate normalization). Both modes use the identical prompt and source-visibility variant, so output-format compliance can be measured separately from candidate likelihood.
 

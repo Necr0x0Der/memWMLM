@@ -10,6 +10,7 @@ import torch
 from torch import Tensor, nn
 
 from memwmlm.memory.embedding_memory import MemoryReader, MemoryState, SourceWriter
+from memwmlm.models.lora import ToggleableLoRALinear, replace_qwen_projection
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,9 @@ class MemoryQwenConfig:
     reader_heads: int = 8
     injection_layers: int = 4
     gate_bias_init: float = -6.0
+    lora_rank: int = 0
+    lora_alpha: float = 16.0
+    lora_dropout: float = 0.0
 
 
 class FrozenQwenWithMemory(nn.Module):
@@ -61,22 +65,37 @@ class FrozenQwenWithMemory(nn.Module):
                 for index in self.layer_indices
             }
         )
+        self.lora_projections: list[ToggleableLoRALinear] = []
+        if config.lora_rank:
+            self.lora_projections = _install_application_lora(
+                layers,
+                self.layer_indices,
+                rank=config.lora_rank,
+                alpha=config.lora_alpha,
+                dropout=config.lora_dropout,
+            )
+
         # With a normal single-device Qwen load, memory modules must follow the
         # input-embedding device. A sharded backbone is intentionally deferred.
         axial_parameter = next(self.qwen.parameters())
         self.writer.to(device=axial_parameter.device, dtype=axial_parameter.dtype)
         self.readers.to(device=axial_parameter.device, dtype=axial_parameter.dtype)
         self._active_memory: MemoryState | None = None
+        self._application_lora_enabled = False
         self._handles = [
             layers[index].register_forward_hook(self._make_injection_hook(index))
             for index in self.layer_indices
         ]
 
     def train(self, mode: bool = True) -> "FrozenQwenWithMemory":
-        """Keep frozen axial-model dropout disabled while training memory modules."""
+        """Keep frozen Qwen fixed while letting sidecar/LoRA follow train mode."""
 
         super().train(mode)
         self.qwen.eval()
+        # qwen.eval() also visits LoRA modules because they replace projections.
+        # Restore only their mode so optional LoRA dropout behaves as configured.
+        for projection in self.lora_projections:
+            projection.train(mode)
         return self
 
     @property
@@ -86,7 +105,8 @@ class FrozenQwenWithMemory(nn.Module):
     def write_memory(self, source_input_ids: Tensor, source_attention_mask: Tensor) -> MemoryState:
         """Run frozen source encoding and create per-example runtime memory."""
 
-        with torch.no_grad(), self.read_memory(None):
+        # Application-only LoRA is explicitly disabled while committing source.
+        with torch.no_grad(), self.read_memory(None), self.application_lora(False):
             outputs = self.qwen(
                 input_ids=source_input_ids,
                 attention_mask=source_attention_mask,
@@ -97,6 +117,22 @@ class FrozenQwenWithMemory(nn.Module):
         # Axial Qwen is frozen, but writer remains in the autograd graph so the
         # application loss can train the source-to-memory transformation.
         return self.writer(outputs.hidden_states[-1].detach(), source_attention_mask)
+
+    @contextmanager
+    def application_lora(self, enabled: bool) -> Iterator[None]:
+        """Enable installed LoRA only for an application-model forward pass."""
+
+        if self._application_lora_enabled:
+            raise RuntimeError("Nested LoRA scopes are not supported")
+        self._application_lora_enabled = enabled
+        for projection in self.lora_projections:
+            projection.enabled = enabled
+        try:
+            yield
+        finally:
+            for projection in self.lora_projections:
+                projection.enabled = False
+            self._application_lora_enabled = False
 
     @contextmanager
     def read_memory(self, memory: MemoryState | None) -> Iterator[None]:
@@ -111,7 +147,9 @@ class FrozenQwenWithMemory(nn.Module):
             self._active_memory = None
 
     def forward(self, *args: object, memory: MemoryState | None = None, **kwargs: object) -> object:
-        with self.read_memory(memory):
+        # A caller using memory asks for the application path. Keep base-Qwen
+        # controls memory=None and LoRA-free by construction.
+        with self.read_memory(memory), self.application_lora(memory is not None):
             return self.qwen(*args, **kwargs)
 
     def _make_injection_hook(self, layer_index: int):
@@ -133,17 +171,19 @@ class FrozenQwenWithMemory(nn.Module):
     def trainable_state_dict(self) -> dict[str, Tensor]:
         """Return only learned memory-sidecar weights, never frozen Qwen weights."""
 
+        trainable = {name for name, parameter in self.named_parameters() if parameter.requires_grad}
         return {
             name: value.detach().cpu()
             for name, value in self.state_dict().items()
-            if not name.startswith("qwen.")
+            if name in trainable
         }
 
     def load_trainable_state_dict(self, state_dict: dict[str, Tensor]) -> None:
         """Load a sidecar-only checkpoint and reject missing/unexpected keys."""
 
         missing, unexpected = self.load_state_dict(state_dict, strict=False)
-        missing = [name for name in missing if not name.startswith("qwen.")]
+        expected = {name for name, parameter in self.named_parameters() if parameter.requires_grad}
+        missing = [name for name in missing if name in expected]
         if missing or unexpected:
             raise RuntimeError(f"Invalid memory checkpoint; missing={missing}, unexpected={unexpected}")
 
@@ -151,6 +191,25 @@ class FrozenQwenWithMemory(nn.Module):
         for handle in self._handles:
             handle.remove()
         self._handles = []
+
+
+def _install_application_lora(
+    layers: Sequence[nn.Module],
+    layer_indices: Sequence[int],
+    rank: int,
+    alpha: float,
+    dropout: float,
+) -> list[ToggleableLoRALinear]:
+    """Attach LoRA to `q_proj` and `o_proj` in selected upper Qwen layers."""
+
+    projections: list[ToggleableLoRALinear] = []
+    for index in layer_indices:
+        attention = getattr(layers[index], "self_attn", None)
+        if not isinstance(attention, nn.Module):
+            raise TypeError(f"Expected Qwen layer {index} to expose self_attn")
+        for name in ("q_proj", "o_proj"):
+            projections.append(replace_qwen_projection(attention, name, rank, alpha, dropout))
+    return projections
 
 
 def _qwen_layers(qwen: nn.Module) -> Sequence[nn.Module]:

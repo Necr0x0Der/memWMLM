@@ -17,6 +17,9 @@ gate_bias_init: -2.0
 lora_rank: 8
 lora_alpha: 16.0
 lora_dropout: 0.0
+source_lora_rank: 0
+source_lora_alpha: 16.0
+source_lora_dropout: 0.0
 
 steps: 10000
 batch_size: 8

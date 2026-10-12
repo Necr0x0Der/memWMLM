@@ -44,6 +44,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lora-alpha", type=float, default=16.0)
     parser.add_argument("--lora-dropout", type=float, default=0.0)
+    parser.add_argument(
+        "--source-lora-rank",
+        type=int,
+        default=0,
+        help="Source-only LoRA rank on q_proj/o_proj; 0 disables source adaptation.",
+    )
+    parser.add_argument("--source-lora-alpha", type=float, default=16.0)
+    parser.add_argument("--source-lora-dropout", type=float, default=0.0)
     parser.add_argument("--adam-beta1", type=float, default=0.9)
     parser.add_argument("--adam-beta2", type=float, default=0.999)
     parser.add_argument("--weight-decay", type=float, default=0.01)
@@ -87,6 +95,9 @@ def checkpoint_payload(
             "lora_rank": args.lora_rank,
             "lora_alpha": args.lora_alpha,
             "lora_dropout": args.lora_dropout,
+            "source_lora_rank": args.source_lora_rank,
+            "source_lora_alpha": args.source_lora_alpha,
+            "source_lora_dropout": args.source_lora_dropout,
         },
         "training_config": {
             "seed": args.seed,
@@ -120,8 +131,15 @@ def main() -> None:
         raise ValueError("--train-file and --output are required, directly or through --config")
     if args.steps <= 0 or args.batch_size <= 0 or args.log_every <= 0:
         raise ValueError("steps, batch-size, and log-every must be positive")
-    if args.lora_rank < 0 or args.lora_alpha <= 0 or not 0 <= args.lora_dropout < 1:
-        raise ValueError("LoRA requires rank >= 0, alpha > 0, and dropout in [0, 1)")
+    if (
+        args.lora_rank < 0
+        or args.source_lora_rank < 0
+        or args.lora_alpha <= 0
+        or args.source_lora_alpha <= 0
+        or not 0 <= args.lora_dropout < 1
+        or not 0 <= args.source_lora_dropout < 1
+    ):
+        raise ValueError("LoRA requires ranks >= 0, alpha > 0, and dropout in [0, 1)")
     if not 0 <= args.adam_beta1 < 1 or not 0 <= args.adam_beta2 < 1:
         raise ValueError("Adam beta values must be in [0, 1)")
     if args.weight_decay < 0:
@@ -152,6 +170,9 @@ def main() -> None:
             lora_rank=args.lora_rank,
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
+            source_lora_rank=args.source_lora_rank,
+            source_lora_alpha=args.source_lora_alpha,
+            source_lora_dropout=args.source_lora_dropout,
         ),
     ).to(device)
     model.train()

@@ -185,6 +185,23 @@ python3 scripts/train_babi_memory.py \
   --config configs/experiment/babi_memory_lora.yaml
 ```
 
+### Source-side LoRA ablation
+
+`configs/experiment/babi_memory_source_lora.yaml` instead enables a separate
+rank-8 LoRA adapter only while encoding the source story. Unlike the original
+writer path, this pass keeps an autograd graph from application loss through
+writer into source LoRA (the base Qwen weights remain frozen). Application
+LoRA is disabled in this config, isolating whether the source representations
+can be made more useful *for writing* memory.
+
+```bash
+python3 scripts/train_babi_memory.py \
+  --config configs/experiment/babi_memory_source_lora.yaml
+```
+
+The startup JSON reports independent `source` and `application` LoRA parameter
+counts. A config with both ranks nonzero trains both scoped adapters.
+
 For the no-memory capacity control, do not introduce a separate training mode:
 train the same architecture with, for example, `--memory-cells 1 --memory-width
 32` (or evaluate `--memory-variant null_memory`). The essential comparison is

@@ -1,0 +1,35 @@
+# Source-side LoRA: make final source representations easier for the writer to use.
+# Application LoRA stays disabled here to isolate the write-interface ablation.
+model: Qwen/Qwen3-1.7B
+train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt
+output: runs/babi-memory/reset-pair-source-lora-r8.pt
+device: cuda
+dtype: bfloat16
+
+memory_width: 512
+memory_cells: 32
+writer_heads: 8
+reader_heads: 8
+injection_layers: 4
+gate_bias_init: -2.0
+
+# Application-side adapter deliberately off.
+lora_rank: 0
+lora_alpha: 16.0
+lora_dropout: 0.0
+
+# Source pass receives gradients through these adapters into the writer loss.
+source_lora_rank: 8
+source_lora_alpha: 16.0
+source_lora_dropout: 0.0
+
+steps: 10000
+batch_size: 8
+learning_rate: 0.0001
+adam_beta1: 0.9
+adam_beta2: 0.999
+weight_decay: 0.01
+max_grad_norm: 1.0
+seed: 0
+log_every: 50
+save_every: 500

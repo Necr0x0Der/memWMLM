@@ -1,4 +1,4 @@
-"""Frozen Qwen3 wrapper with temporary cross-attention to resettable memory."""
+"""Frozen Qwen3 wrapper with resettable memory and optional interface LoRA."""
 
 from __future__ import annotations
 
@@ -24,14 +24,18 @@ class MemoryQwenConfig:
     lora_rank: int = 0
     lora_alpha: float = 16.0
     lora_dropout: float = 0.0
+    source_lora_rank: int = 0
+    source_lora_alpha: float = 16.0
+    source_lora_dropout: float = 0.0
 
 
 class FrozenQwenWithMemory(nn.Module):
-    """Keep axial Qwen frozen while exposing source-write and application-read paths.
+    """Frozen axial Qwen with source-writer and application-reader paths.
 
-    The module uses temporary forward hooks on selected decoder layers. Hooks are
-    installed once, but are inactive unless a ``MemoryState`` is in scope. This
-    keeps the unmodified Qwen forward path available for full-context controls.
+    LoRA may be installed in selected upper attention projections. Source and
+    application adapters are distinct and explicitly scoped: source LoRA makes
+    committed hidden states write-friendly; application LoRA adapts memory use.
+    Base Qwen weights are always frozen.
     """
 
     def __init__(self, qwen: nn.Module, config: MemoryQwenConfig) -> None:
@@ -66,34 +70,33 @@ class FrozenQwenWithMemory(nn.Module):
             }
         )
         self.lora_projections: list[ToggleableLoRALinear] = []
-        if config.lora_rank:
-            self.lora_projections = _install_application_lora(
+        if config.lora_rank or config.source_lora_rank:
+            self.lora_projections = _install_lora(
                 layers,
                 self.layer_indices,
-                rank=config.lora_rank,
-                alpha=config.lora_alpha,
-                dropout=config.lora_dropout,
+                application_rank=config.lora_rank,
+                application_alpha=config.lora_alpha,
+                application_dropout=config.lora_dropout,
+                source_rank=config.source_lora_rank,
+                source_alpha=config.source_lora_alpha,
+                source_dropout=config.source_lora_dropout,
             )
 
-        # With a normal single-device Qwen load, memory modules must follow the
-        # input-embedding device. A sharded backbone is intentionally deferred.
         axial_parameter = next(self.qwen.parameters())
         self.writer.to(device=axial_parameter.device, dtype=axial_parameter.dtype)
         self.readers.to(device=axial_parameter.device, dtype=axial_parameter.dtype)
         self._active_memory: MemoryState | None = None
-        self._application_lora_enabled = False
+        self._lora_mode = "none"
         self._handles = [
             layers[index].register_forward_hook(self._make_injection_hook(index))
             for index in self.layer_indices
         ]
 
     def train(self, mode: bool = True) -> "FrozenQwenWithMemory":
-        """Keep frozen Qwen fixed while letting sidecar/LoRA follow train mode."""
+        """Keep frozen Qwen in eval mode while sidecar/LoRA follow train mode."""
 
         super().train(mode)
         self.qwen.eval()
-        # qwen.eval() also visits LoRA modules because they replace projections.
-        # Restore only their mode so optional LoRA dropout behaves as configured.
         for projection in self.lora_projections:
             projection.train(mode)
         return self
@@ -103,47 +106,67 @@ class FrozenQwenWithMemory(nn.Module):
         return self.qwen.get_input_embeddings().weight.device
 
     def lora_summary(self) -> dict[str, object]:
-        """Return a serializable assertion of installed interface-LoRA state."""
+        """Return serializable adapter counts and scopes for experiment logs."""
 
-        trainable_names = [
-            name for name, parameter in self.named_parameters()
-            if parameter.requires_grad and ".lora_" in name
-        ]
-        trainable_parameters = sum(
-            parameter.numel() for name, parameter in self.named_parameters()
-            if parameter.requires_grad and ".lora_" in name
-        )
-        return {
+        parameter_map = dict(self.named_parameters())
+        modes = {
+            "application": (".lora_", self.config.lora_rank, self.config.lora_alpha, self.config.lora_dropout),
+            "source": (
+                ".source_lora_",
+                self.config.source_lora_rank,
+                self.config.source_lora_alpha,
+                self.config.source_lora_dropout,
+            ),
+        }
+        result: dict[str, object] = {
             "enabled": bool(self.lora_projections),
-            "rank": self.config.lora_rank,
-            "alpha": self.config.lora_alpha,
-            "dropout": self.config.lora_dropout,
             "target_layers": list(self.layer_indices) if self.lora_projections else [],
             "target_projections": ["q_proj", "o_proj"] if self.lora_projections else [],
             "projection_modules": len(self.lora_projections),
-            "trainable_parameters": trainable_parameters,
-            "trainable_parameter_tensors": len(trainable_names),
         }
+        for mode, (marker, rank, alpha, dropout) in modes.items():
+            names = [
+                name for name, parameter in parameter_map.items()
+                if parameter.requires_grad and marker in name
+            ]
+            result[mode] = {
+                "enabled": bool(names),
+                "rank": rank,
+                "alpha": alpha,
+                "dropout": dropout,
+                "trainable_parameters": sum(parameter_map[name].numel() for name in names),
+                "trainable_parameter_tensors": len(names),
+            }
+        return result
 
     def trainable_parameter_summary(self) -> dict[str, int]:
-        """Report trainable sidecar/LoRA parameter counts for experiment logs."""
+        """Report aggregate memory-sidecar and LoRA parameter counts."""
 
-        lora_parameters = sum(
-            parameter.numel() for name, parameter in self.named_parameters()
-            if parameter.requires_grad and ".lora_" in name
-        )
         total = sum(parameter.numel() for parameter in self.parameters() if parameter.requires_grad)
+        application = sum(
+            parameter.numel()
+            for name, parameter in self.named_parameters()
+            if parameter.requires_grad and ".lora_" in name and ".source_lora_" not in name
+        )
+        source = sum(
+            parameter.numel()
+            for name, parameter in self.named_parameters()
+            if parameter.requires_grad and ".source_lora_" in name
+        )
         return {
             "total": total,
-            "lora": lora_parameters,
-            "memory_sidecar": total - lora_parameters,
+            "application_lora": application,
+            "source_lora": source,
+            "memory_sidecar": total - application - source,
         }
 
     def write_memory(self, source_input_ids: Tensor, source_attention_mask: Tensor) -> MemoryState:
-        """Run frozen source encoding and create per-example runtime memory."""
+        """Commit source into runtime memory, optionally training source LoRA."""
 
-        # Application-only LoRA is explicitly disabled while committing source.
-        with torch.no_grad(), self.read_memory(None), self.application_lora(False):
+        # With source LoRA, retain a graph through source adapter only; all base
+        # Qwen parameters are frozen. Otherwise source states are constants.
+        source_context = torch.enable_grad() if self.config.source_lora_rank else torch.no_grad()
+        with source_context, self.read_memory(None), self.lora_mode("source"):
             outputs = self.qwen(
                 input_ids=source_input_ids,
                 attention_mask=source_attention_mask,
@@ -151,29 +174,37 @@ class FrozenQwenWithMemory(nn.Module):
                 use_cache=False,
                 return_dict=True,
             )
-        # Axial Qwen is frozen, but writer remains in the autograd graph so the
-        # application loss can train the source-to-memory transformation.
-        return self.writer(outputs.hidden_states[-1].detach(), source_attention_mask)
+        source_states = outputs.hidden_states[-1]
+        if not self.config.source_lora_rank:
+            source_states = source_states.detach()
+        return self.writer(source_states, source_attention_mask)
 
     @contextmanager
-    def application_lora(self, enabled: bool) -> Iterator[None]:
-        """Enable installed LoRA only for an application-model forward pass."""
+    def lora_mode(self, mode: str) -> Iterator[None]:
+        """Select `source`, `application`, or `none` adapters for one Qwen pass."""
 
-        if self._application_lora_enabled:
+        if mode not in {"none", "source", "application"}:
+            raise ValueError(f"Unknown LoRA mode: {mode}")
+        if self._lora_mode != "none":
             raise RuntimeError("Nested LoRA scopes are not supported")
-        self._application_lora_enabled = enabled
+        self._lora_mode = mode
         for projection in self.lora_projections:
-            projection.enabled = enabled
+            projection.mode = mode
         try:
             yield
         finally:
             for projection in self.lora_projections:
-                projection.enabled = False
-            self._application_lora_enabled = False
+                projection.mode = "none"
+            self._lora_mode = "none"
+
+    def application_lora(self, enabled: bool) -> Iterator[None]:
+        """Compatibility helper for generation evaluation."""
+
+        return self.lora_mode("application" if enabled else "none")
 
     @contextmanager
     def read_memory(self, memory: MemoryState | None) -> Iterator[None]:
-        """Activate memory injection only for the enclosed axial forward pass."""
+        """Activate memory injection only for the enclosed Qwen forward pass."""
 
         if self._active_memory is not None:
             raise RuntimeError("Nested memory read scopes are not supported")
@@ -184,9 +215,7 @@ class FrozenQwenWithMemory(nn.Module):
             self._active_memory = None
 
     def forward(self, *args: object, memory: MemoryState | None = None, **kwargs: object) -> object:
-        # A caller using memory asks for the application path. Keep base-Qwen
-        # controls memory=None and LoRA-free by construction.
-        with self.read_memory(memory), self.application_lora(memory is not None):
+        with self.read_memory(memory), self.lora_mode("application" if memory is not None else "none"):
             return self.qwen(*args, **kwargs)
 
     def _make_injection_hook(self, layer_index: int):
@@ -206,18 +235,10 @@ class FrozenQwenWithMemory(nn.Module):
         return inject
 
     def trainable_state_dict(self) -> dict[str, Tensor]:
-        """Return only learned memory-sidecar weights, never frozen Qwen weights."""
-
         trainable = {name for name, parameter in self.named_parameters() if parameter.requires_grad}
-        return {
-            name: value.detach().cpu()
-            for name, value in self.state_dict().items()
-            if name in trainable
-        }
+        return {name: value.detach().cpu() for name, value in self.state_dict().items() if name in trainable}
 
     def load_trainable_state_dict(self, state_dict: dict[str, Tensor]) -> None:
-        """Load a sidecar-only checkpoint and reject missing/unexpected keys."""
-
         missing, unexpected = self.load_state_dict(state_dict, strict=False)
         expected = {name for name, parameter in self.named_parameters() if parameter.requires_grad}
         missing = [name for name in missing if name in expected]
@@ -230,14 +251,17 @@ class FrozenQwenWithMemory(nn.Module):
         self._handles = []
 
 
-def _install_application_lora(
+def _install_lora(
     layers: Sequence[nn.Module],
     layer_indices: Sequence[int],
-    rank: int,
-    alpha: float,
-    dropout: float,
+    application_rank: int,
+    application_alpha: float,
+    application_dropout: float,
+    source_rank: int,
+    source_alpha: float,
+    source_dropout: float,
 ) -> list[ToggleableLoRALinear]:
-    """Attach LoRA to `q_proj` and `o_proj` in selected upper Qwen layers."""
+    """Attach scoped LoRA to q_proj/o_proj of selected Qwen attention layers."""
 
     projections: list[ToggleableLoRALinear] = []
     for index in layer_indices:
@@ -245,13 +269,22 @@ def _install_application_lora(
         if not isinstance(attention, nn.Module):
             raise TypeError(f"Expected Qwen layer {index} to expose self_attn")
         for name in ("q_proj", "o_proj"):
-            projections.append(replace_qwen_projection(attention, name, rank, alpha, dropout))
+            projections.append(
+                replace_qwen_projection(
+                    attention,
+                    name,
+                    application_rank=application_rank,
+                    application_alpha=application_alpha,
+                    application_dropout=application_dropout,
+                    source_rank=source_rank,
+                    source_alpha=source_alpha,
+                    source_dropout=source_dropout,
+                )
+            )
     return projections
 
 
 def _qwen_layers(qwen: nn.Module) -> Sequence[nn.Module]:
-    """Locate dense Qwen decoder layers and fail explicitly on unsupported models."""
-
     try:
         layers = qwen.model.layers
     except AttributeError as error:

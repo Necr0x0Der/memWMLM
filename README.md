@@ -139,9 +139,13 @@ By default, the evaluator processes the **entire evaluation split** and prints
 aggregate full-context and cached candidate accuracy, prediction mismatches,
 and maximum candidate-score difference. `--max-examples 20` is an optional quick
 check; `--include-examples` adds individual predictions to JSON. For the first
-three examples (`--verify-examples` controls the count), it also compares aligned
-logits with a single-pass full-context forward, including the first application
-token. The full-context score uses the *same* batched scorer as `evaluate_babi.py
+three examples (`--verify-examples` controls the count) and up to three examples
+with differing predictions (`--verify-mismatches`), it compares a single-example
+full forward with cached computation at the source, application, and answer
+logits. The JSON also reports batch-vs-single-full and single-full-vs-cache
+candidate-score differences and prediction disagreements on verified examples,
+plus a concise list of all disagreeing examples with their competing scores.
+The full-context score uses the *same* batched scorer as `evaluate_babi.py
 --variant full_context --scoring candidate_likelihood`. Minor floating-point
 differences can arise from attention kernels; equality is numerical rather than
 bitwise. A complete cache grows with source length and is not a bounded or

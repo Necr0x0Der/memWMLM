@@ -132,20 +132,19 @@ boundary, not independent semantic memory or a separate learned memory path.
 python3 scripts/evaluate_babi_kv_cache.py \
   --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
   --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
-  --max-examples 20 --output runs/babi-kv-cache/control.json
+  --output runs/babi-kv-cache/control.json
 ```
 
-The JSON reports full vs cached candidate accuracy, prediction mismatches,
-maximum absolute logit difference over the continuation (including the first
-application token), and differences in answer-token log-probabilities and
-candidate scores. Start with a few examples, then increase the limit after
-confirming small numerical differences and zero prediction mismatches. The
-full-context score should track `evaluate_babi.py --variant full_context
---scoring candidate_likelihood` with the same split and example limit. Minor
-floating-point differences can arise from attention kernels; equality is
-numerical rather than bitwise. This script performs one full forward pass per
-candidate for a rigorous comparison and is therefore slower than the baseline
-evaluator. A complete cache grows with source length and is not a bounded or
+By default, the evaluator processes the **entire evaluation split** and prints
+aggregate full-context and cached candidate accuracy, prediction mismatches,
+and maximum candidate-score difference. `--max-examples 20` is an optional quick
+check; `--include-examples` adds individual predictions to JSON. For the first
+three examples (`--verify-examples` controls the count), it also compares aligned
+logits with a single-pass full-context forward, including the first application
+token. The full-context score uses the *same* batched scorer as `evaluate_babi.py
+--variant full_context --scoring candidate_likelihood`. Minor floating-point
+differences can arise from attention kernels; equality is numerical rather than
+bitwise. A complete cache grows with source length and is not a bounded or
 persistent memory mechanism.
 
 ## Reset-pair writable-memory sanity check

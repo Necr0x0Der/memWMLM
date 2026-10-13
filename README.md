@@ -151,6 +151,48 @@ differences can arise from attention kernels; equality is numerical rather than
 bitwise. A complete cache grows with source length and is not a bounded or
 persistent memory mechanism.
 
+## Learned episodic KV reader (experimental, GPU validation pending)
+
+This experiment removes the Perceiver pooling writer. Frozen Qwen encodes a
+source episode and saves **every source-token K/V at every layer**, independently
+for each example. A learned cross-attention reader in the final four layers
+reads the corresponding source K/V during a *separate application prompt*;
+application Qwen does **not** receive the native source cache as its own
+past_key_values. Only the readers and optional application q/o LoRA train.
+This checks the learned interface, not bounded or durable semantic memory.
+
+```bash
+python3 scripts/train_babi_episodic.py --config configs/experiment/babi_episodic_train.yaml
+python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml
+python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml --variant shuffled_memory
+python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml --variant null_memory
+```
+
+The evaluation config selects both full train/test splits and candidate
+likelihood. The source is reset for each pair, not carried across examples.
+Training currently processes one unpadded pair per optimizer step (2,000
+examples sampled with replacement in the example config). Results must be
+interpreted alongside the frozen full-context, native-KV and pooled-cell
+baselines; `memory` should beat `shuffled_memory`/`null_memory` on held-out
+examples. A high score here alone cannot establish semantic memory.
+
+A separate **task-adapted full-context** control trains rank-8 q/o LoRA in the
+same final four layers on the same 2,000 sampled training pairs and answer+EOS
+loss, with ordinary story+question context:
+
+```bash
+python3 scripts/train_babi_full_context_lora.py --config configs/experiment/babi_full_context_lora.yaml
+python3 scripts/evaluate_babi_full_context_lora.py --config configs/experiment/babi_full_context_lora_eval.yaml
+```
+
+The control matches train split, sampled-example count, seed, LoRA rank/placement
+and candidate-scoring contract, **not** parameter count or prompt topology: the
+episodic reader adds parameters and uses two episodes. Compare train/test and
+null/shuffled controls to distinguish task adaptation from source-specific
+memory use. On this development host PyTorch/Transformers are absent; model
+forwards and accuracy remain to be validated on the GPU computer. Begin with
+small `--steps`/`--max-examples` smoke runs before the full runs.
+
 ## Reset-pair writable-memory sanity check
 
 The first learned-memory experiment keeps Qwen frozen and resets memory for

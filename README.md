@@ -117,6 +117,37 @@ normalization; it deliberately does not extract an answer from explanatory
 prose. That makes formatting failures visible rather than silently turning
 them into semantic successes.
 
+## Frozen KV-cache boundary control (no training)
+
+`evaluate_babi_kv_cache.py` compares the same full-context Qwen token sequence
+processed in one forward pass with a two-pass continuation: prefill tokens
+before `Question:`, retain Qwen's native layerwise KV cache, then process the
+question, answer cue and candidate answer using that cache. The prefix is
+chat-formatted and tokenized **once**, with a token-aligned split near the
+question. Every candidate forks the original cache; no writer, reader, LoRA or
+optimizer is involved. This is ordinary native attention across a processing
+boundary, not independent semantic memory or a separate learned memory path.
+
+```bash
+python3 scripts/evaluate_babi_kv_cache.py \
+  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
+  --evaluation-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
+  --max-examples 20 --output runs/babi-kv-cache/control.json
+```
+
+The JSON reports full vs cached candidate accuracy, prediction mismatches,
+maximum absolute logit difference over the continuation (including the first
+application token), and differences in answer-token log-probabilities and
+candidate scores. Start with a few examples, then increase the limit after
+confirming small numerical differences and zero prediction mismatches. The
+full-context score should track `evaluate_babi.py --variant full_context
+--scoring candidate_likelihood` with the same split and example limit. Minor
+floating-point differences can arise from attention kernels; equality is
+numerical rather than bitwise. This script performs one full forward pass per
+candidate for a rigorous comparison and is therefore slower than the baseline
+evaluator. A complete cache grows with source length and is not a bounded or
+persistent memory mechanism.
+
 ## Reset-pair writable-memory sanity check
 
 The first learned-memory experiment keeps Qwen frozen and resets memory for

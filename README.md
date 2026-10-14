@@ -195,6 +195,37 @@ small `--steps`/`--max-examples` smoke runs before the full runs.
 
 ## Reset-pair writable-memory sanity check
 
+### Reader placement ablation
+
+The original pooled-cell experiment supports `injection_indices` as a list of
+zero-based Qwen decoder-block indices, for example `[0, 9, 18, 27]`. A reader
+is added **after** each selected block; the next block can then process its
+output. The selected indices also determine where optional source/application
+LoRA adapters attach. With `injection_indices` omitted, the legacy
+`injection_layers: 4` still means the last four blocks. Explicit indices take
+precedence over `injection_layers` and are checked against the loaded model's
+actual layer count at startup; old checkpoints lacking the field load as
+before. New checkpoints store the exact indices for evaluation and debugging.
+
+Use the same training budget/seed/settings as the late-four control and a
+separate output path; an old late-layer checkpoint is **not** reusable with
+new reader positions:
+
+```bash
+python3 scripts/train_babi_memory.py \
+  --config configs/experiment/babi_memory_spaced.yaml
+
+python3 scripts/evaluate_babi_memory.py \
+  --config configs/experiment/babi_memory_eval.yaml \
+  --checkpoint runs/babi-memory/reset-pair-spaced.pt \
+  --scoring candidate_likelihood --split test
+```
+
+Compare late-four, spaced-four and (optionally) early-four placements at four
+readers each. Report train/test and shuffled/null-memory controls. This tests
+the location of the pooled-memory reader, not the uncompressed episodic KV
+reader. Reader positions change model parameters, so train each from scratch.
+
 The first learned-memory experiment keeps Qwen frozen and resets memory for
 every bAbI pair. The source story is encoded, compressed by a trainable writer
 into key/value cells, then removed. The application question accesses only

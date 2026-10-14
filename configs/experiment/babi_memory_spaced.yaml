@@ -1,0 +1,29 @@
+# Pooled embedding-memory ablation: same 4 readers, spread from early to late.
+# Qwen3-1.7B indices are validated against the loaded layer count at startup.
+model: Qwen/Qwen3-1.7B
+train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt
+output: runs/babi-memory/reset-pair-spaced.pt
+device: cuda
+dtype: bfloat16
+memory_width: 512
+memory_cells: 32
+writer_heads: 8
+reader_heads: 8
+injection_indices: [0, 9, 18, 27]
+gate_bias_init: -6.0
+lora_rank: 0
+lora_alpha: 16.0
+lora_dropout: 0.0
+source_lora_rank: 0
+source_lora_alpha: 16.0
+source_lora_dropout: 0.0
+steps: 2000
+batch_size: 8
+learning_rate: 0.0003
+adam_beta1: 0.9
+adam_beta2: 0.999
+weight_decay: 0.01
+max_grad_norm: null
+seed: 0
+log_every: 50
+save_every: 500

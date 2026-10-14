@@ -11,6 +11,7 @@ from torch import Tensor, nn
 
 from memwmlm.memory.embedding_memory import MemoryReader, MemoryState, SourceWriter
 from memwmlm.models.lora import ToggleableLoRALinear, replace_qwen_projection
+from memwmlm.models.injection_indices import resolve_injection_indices
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class MemoryQwenConfig:
     source_lora_rank: int = 0
     source_lora_alpha: float = 16.0
     source_lora_dropout: float = 0.0
+    injection_indices: tuple[int, ...] | None = None
 
 
 class FrozenQwenWithMemory(nn.Module):
@@ -44,8 +46,9 @@ class FrozenQwenWithMemory(nn.Module):
         self.config = config
         hidden_size = int(qwen.config.hidden_size)
         layers = _qwen_layers(qwen)
-        if not 0 < config.injection_layers <= len(layers):
-            raise ValueError("injection_layers must be in [1, number of Qwen layers]")
+        layer_indices = resolve_injection_indices(
+            len(layers), config.injection_layers, config.injection_indices
+        )
 
         for parameter in self.qwen.parameters():
             parameter.requires_grad_(False)
@@ -57,7 +60,7 @@ class FrozenQwenWithMemory(nn.Module):
             cells=config.memory_cells,
             heads=config.writer_heads,
         )
-        self.layer_indices = tuple(range(len(layers) - config.injection_layers, len(layers)))
+        self.layer_indices = layer_indices
         self.readers = nn.ModuleDict(
             {
                 str(index): MemoryReader(

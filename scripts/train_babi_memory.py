@@ -35,6 +35,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--writer-heads", type=int, default=8)
     parser.add_argument("--reader-heads", type=int, default=8)
     parser.add_argument("--injection-layers", type=int, default=4)
+    parser.add_argument(
+        "--injection-indices", type=int, nargs="+", default=None,
+        help="0-based decoder blocks for post-block reader injection; overrides --injection-layers.",
+    )
     parser.add_argument("--gate-bias-init", type=float, default=-6.0)
     parser.add_argument(
         "--lora-rank",
@@ -91,6 +95,7 @@ def checkpoint_payload(
             "writer_heads": args.writer_heads,
             "reader_heads": args.reader_heads,
             "injection_layers": args.injection_layers,
+            "injection_indices": list(model.layer_indices) if args.injection_indices is not None else None,
             "gate_bias_init": args.gate_bias_init,
             "lora_rank": args.lora_rank,
             "lora_alpha": args.lora_alpha,
@@ -166,6 +171,7 @@ def main() -> None:
             writer_heads=args.writer_heads,
             reader_heads=args.reader_heads,
             injection_layers=args.injection_layers,
+            injection_indices=tuple(args.injection_indices) if args.injection_indices is not None else None,
             gate_bias_init=args.gate_bias_init,
             lora_rank=args.lora_rank,
             lora_alpha=args.lora_alpha,
@@ -190,6 +196,7 @@ def main() -> None:
             {
                 "event": "model_initialized",
                 "memory_config": model.config.__dict__,
+                "effective_injection_indices": list(model.layer_indices),
                 "lora": model.lora_summary(),
                 "trainable_parameters": model.trainable_parameter_summary(),
             },

@@ -77,3 +77,21 @@ Alex's full bAbI Task 1 test: frozen `full_context` candidate accuracy 81.9%, na
 ## 2026-10-13 — Learned uncompressed episodic side-path (experimental design)
 
 Next test a separate trainable reader over all source-token per-layer Qwen K/V without pooling or compression. The source is encoded with frozen Qwen and is not present in the application context; the application starts its own positional context and may access source only through gated cross-attention side paths in the last four layers. Train reader plus optional application-side rank-8 LoRA, while keeping Qwen base/source encoder frozen. Measure candidate accuracy on train/test and shuffled/null-memory controls. Alongside it, train a frozen-base full-context rank-8 LoRA task control on the same bAbI task, answer+EOS loss, train examples/optimizer steps and upper q/o projection placement. These are not identical parameter budgets: the side reader has additional parameters and sees a separate source prompt. A result above frozen 82% can reflect task adaptation, not memory quality alone. The exact future representation beyond this episodic upper-bound probe remains open.
+
+## 2026-10-14 — Test early and spaced injection in pooled-cell memory
+
+Alex reports that episodic KV-reader memory reached about 33% after 2,000
+single-example steps, then about 55–56% with more intensive training; it is
+**not** a 56% result after only 2,000 steps. The task-adapted full-context LoRA
+reached about 98% train / 94% test. These are reported runs, not evidence that
+the episodic model has converged. Both learned memory variants so far inject
+only at late layers. A late-one versus late-four comparison does not test
+whether early memory access lets the model combine the question and source.
+
+Add explicit zero-based `injection_indices` to the original *pooled embedding
+memory* experiment; retain `injection_layers` as the old last-N default. Keep
+the number of reader positions equal for late-four versus spaced-four
+(`0,9,18,27` when those layers exist) and possibly early-four; compare with
+the same training budget and shuffled/null-memory controls. Hooks add memory
+**after** the selected block. A later run will determine whether placement,
+as opposed to writer/representation or training, explains the gap.

@@ -77,6 +77,7 @@ def main() -> None:
                 "event": "model_loaded",
                 "checkpoint_step": checkpoint["step"],
                 "memory_config": model.config.__dict__,
+                "effective_injection_indices": list(model.layer_indices),
                 "lora": model.lora_summary(),
                 "trainable_parameters": model.trainable_parameter_summary(),
             },
@@ -112,6 +113,7 @@ def main() -> None:
     payload = {
         "checkpoint": str(args.checkpoint),
         "model": backbone_name,
+        "effective_injection_indices": list(model.layer_indices),
         "memory_variant": args.memory_variant,
         "scoring": args.scoring,
         "max_new_tokens": args.max_new_tokens if args.scoring == "free_generation" else None,

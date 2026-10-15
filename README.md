@@ -161,11 +161,30 @@ application Qwen does **not** receive the native source cache as its own
 past_key_values. Only the readers and optional application q/o LoRA train.
 This checks the learned interface, not bounded or durable semantic memory.
 
+To test early access without changing the default late-four setup, pass
+zero-based post-block `injection_indices` (e.g. `[0, 1, 2, 3]`); these select
+both the reader hooks and the optional application LoRA projections. When
+omitted, `injection_layers: 4` still selects the final four blocks, including
+when loading earlier checkpoints. The indices are checked against the loaded
+model's layer count and saved in new checkpoints. A checkpoint trained at
+late layers cannot be loaded as an early-reader model: retrain with a separate
+output path. The source encoder still saves K/V at **all** layers; only the
+reader locations change.
+
 ```bash
 python3 scripts/train_babi_episodic.py --config configs/experiment/babi_episodic_train.yaml
 python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml
 python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml --variant shuffled_memory
 python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml --variant null_memory
+```
+
+Early-four smoke run, with the evaluation checkpoint overridden (the eval
+config defaults to the original late-four checkpoint):
+
+```bash
+python3 scripts/train_babi_episodic.py --config configs/experiment/babi_episodic_early_train.yaml
+python3 scripts/evaluate_babi_episodic.py --config configs/experiment/babi_episodic_eval.yaml \
+  --checkpoint runs/babi-episodic/reader-early.pt
 ```
 
 The evaluation config selects both full train/test splits and candidate

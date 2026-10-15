@@ -31,6 +31,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--injection-layers", type=int, default=4)
+    parser.add_argument(
+        "--injection-indices", type=int, nargs="+", default=None,
+        help="Zero-based post-block reader positions; overrides --injection-layers.",
+    )
     parser.add_argument("--reader-heads", type=int, default=8)
     parser.add_argument("--gate-bias-init", type=float, default=-6.0)
     parser.add_argument("--lora-rank", type=int, default=8)
@@ -72,14 +76,21 @@ def main() -> None:
     if tokenizer.eos_token_id is None:
         raise ValueError("Tokenizer requires eos_token_id")
     qwen = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=getattr(torch, args.dtype)).to(device)
-    config = EpisodicConfig(args.injection_layers, args.reader_heads, args.gate_bias_init,
-                            args.lora_rank, args.lora_alpha)
+    config = EpisodicConfig(
+        injection_layers=args.injection_layers,
+        reader_heads=args.reader_heads,
+        gate_bias_init=args.gate_bias_init,
+        lora_rank=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        injection_indices=tuple(args.injection_indices) if args.injection_indices is not None else None,
+    )
     model = FrozenQwenWithEpisodicKV(qwen, config).train()
     formatter = QwenChatPromptFormatter(tokenizer)
     parameters = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(parameters, lr=args.learning_rate)
     rng = random.Random(args.seed)
     print(json.dumps({"event": "model_initialized", "configuration": vars(args),
+                      "effective_injection_indices": list(model.indices),
                       "trainable_parameters": sum(p.numel() for p in parameters)}, default=str), flush=True)
     for step in range(1, args.steps + 1):
         example = rng.choices(examples, k=1)[0]

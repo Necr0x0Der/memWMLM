@@ -92,3 +92,27 @@ def test_reading_wrong_source_changes_application_logits():
         shuffled = model(question, memory=second).logits
     assert not torch.allclose(correct, shuffled)
     model.close()
+
+
+def test_explicit_early_indices_and_legacy_checkpoint_config():
+    early = FrozenQwenWithEpisodicKV(
+        FakeQwen(), EpisodicConfig(injection_layers=1, reader_heads=2,
+                                    injection_indices=(0, 1))
+    )
+    assert early.indices == (0, 1)
+    assert tuple(early.readers.keys()) == ("0", "1")
+    state = early.trainable_state_dict()
+    reloaded = FrozenQwenWithEpisodicKV(
+        FakeQwen(), EpisodicConfig(injection_layers=1, reader_heads=2,
+                                    injection_indices=(0, 1))
+    )
+    reloaded.load_trainable_state_dict(state)
+    early.close()
+    reloaded.close()
+
+    # Old checkpoints have no injection_indices key; preserve their last-N layout.
+    legacy = FrozenQwenWithEpisodicKV(FakeQwen(), EpisodicConfig(**{
+        "injection_layers": 1, "reader_heads": 2
+    }))
+    assert legacy.indices == (1,)
+    legacy.close()

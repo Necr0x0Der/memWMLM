@@ -14,6 +14,7 @@ import torch
 from torch import Tensor, nn
 
 from memwmlm.models.lora import ToggleableLoRALinear, replace_qwen_projection
+from memwmlm.models.injection_indices import resolve_injection_indices
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class EpisodicConfig:
     gate_bias_init: float = -6.0
     lora_rank: int = 0
     lora_alpha: float = 16.0
+    injection_indices: tuple[int, ...] | None = None
 
 
 class KVReader(nn.Module):
@@ -57,9 +59,9 @@ class FrozenQwenWithEpisodicKV(nn.Module):
             parameter.requires_grad_(False)
         qwen.eval()
         layers = qwen.model.layers
-        if not 0 < config.injection_layers <= len(layers):
-            raise ValueError("Invalid injection_layers")
-        self.indices = tuple(range(len(layers) - config.injection_layers, len(layers)))
+        self.indices = resolve_injection_indices(
+            len(layers), config.injection_layers, config.injection_indices
+        )
         kv_dim = int(qwen.config.num_key_value_heads) * int(qwen.config.head_dim)
         hidden = int(qwen.config.hidden_size)
         self.readers = nn.ModuleDict({str(i): KVReader(hidden, kv_dim, config.reader_heads, config.gate_bias_init)

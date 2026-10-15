@@ -109,6 +109,7 @@ def main() -> None:
             correct += predicted == example.answer
         output[split] = {"examples": len(selected), "correct": correct, "accuracy": correct / len(selected)}
     payload = {"model": checkpoint["model"], "checkpoint": str(a.checkpoint), "step": checkpoint["step"],
+               "effective_injection_indices": list(model.indices),
                "variant": a.variant, "candidate_vocabulary": list(vocabulary), "splits": output}
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
     print(text, end="")

@@ -10,6 +10,56 @@ source episode → writer → resettable memory cells → reader cross-attention
 
 The axial language model remains frozen. The source text is unavailable in the application episode. Runtime memory is reset for each pair, so v0 does **not** test retention, organization, consolidation, revision, or multi-episode learning.
 
+## QA1 20k training extension (same task, original test unchanged)
+
+`datasets/qa1-extended-20k/qa1_merged_20k_train.txt` contains the original
+10,000 training questions followed by 10,000 newly generated QA1 questions.
+The extra 10,000 are also stored separately in the same directory. Use the
+**unchanged** published test file under `artifacts/babi/tasks_1-20_v1-2/en-10k/`.
+Both files use the existing bAbI parser. The generated half has 2,000 new
+15-line episodes, each with 10 movements and five questions; actors, locations,
+movement wording, question cadence and support recency were checked against the
+published Task 1 sample. This is an *approximation* of its distribution, not
+a reproduction of the unpublished v1.2 generator. In particular, do not
+attribute a test-accuracy change solely to data volume without checking for
+synthetic→published distribution shift. Details and SHA-256 hashes are in
+`datasets/qa1-extended-20k/manifest.json`.
+
+For the existing pooled-memory experiment, start from **your saved successful
+early-only 10k config** (the exact 72.3% settings are not in this repository),
+then override only the input and checkpoint destination:
+
+```bash
+python3 scripts/train_babi_memory.py \
+  --config path/to/your-early-four-config.yaml \
+  --train-file datasets/qa1-extended-20k/qa1_merged_20k_train.txt \
+  --output runs/babi-memory/early-20k.pt
+```
+
+Verify that config still selects `[0,1,2,3]` and the same width, LoRA ranks,
+batch and optimization settings as the 10k run. Evaluate with the **original**
+test file (`--split test` for the primary comparison). For a fair learning
+curve, record the number of presented examples (`steps × batch_size`) as well
+as optimizer steps; random sampling with replacement does not correspond to
+exact epochs. The evaluation vocabulary still comes from the original train
+split via `babi_memory_eval.yaml`.
+
+To reproduce the extension locally from downloaded bAbI v1.2 source files:
+
+```bash
+python3 scripts/extend_babi_qa1.py \
+  --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt \
+  --test-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt \
+  --output-dir artifacts/babi/rebuilt-qa1-extension \
+  --additional-examples 10000 --seed 20261020
+```
+
+The generator keeps the source question-blind and rejects generated examples
+already present in the original train/test, as well as generated stories
+matching the original test. The published train/test **already** share 16
+exact `(story, question, answer)` records; the extension does not remove or
+add to that pre-existing overlap.
+
 ## First milestone: bAbI Task 1
 
 Dataset: bAbI Tasks v1.2, `en-10k/qa1_single-supporting-fact_{train,test}.txt`.

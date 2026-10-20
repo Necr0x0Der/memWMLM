@@ -1,0 +1,158 @@
+{
+  "additional_examples": 10000,
+  "collisions_rejected": 0,
+  "example_collisions_rejected": 372,
+  "format": "babi-qa1-extension-v1",
+  "generated_train": {
+    "path": "datasets/qa1-extended-20k/qa1_extra_10k_train.txt",
+    "sha256": "e9101c8d43ed949133c0549e66e0867ea132bdceccd0bd5c05b1d95d92570120",
+    "stats": {
+      "answers": {
+        "bathroom": 1621,
+        "bedroom": 1639,
+        "garden": 1724,
+        "hallway": 1722,
+        "kitchen": 1621,
+        "office": 1673
+      },
+      "episodes": 2000,
+      "movement_actors": {
+        "Daniel": 4991,
+        "John": 4978,
+        "Mary": 5027,
+        "Sandra": 5004
+      },
+      "movement_locations": {
+        "bathroom": 3281,
+        "bedroom": 3333,
+        "garden": 3368,
+        "hallway": 3337,
+        "kitchen": 3328,
+        "office": 3353
+      },
+      "question_support_movement_age": {
+        "1": 4502,
+        "2": 2849,
+        "3": 1411,
+        "4": 831,
+        "5": 407
+      },
+      "questions": 10000
+    }
+  },
+  "merged_train": {
+    "path": "datasets/qa1-extended-20k/qa1_merged_20k_train.txt",
+    "sha256": "298eccce82737aea348e17590bcec28b58cf4bb7017458c940613752dcbb4e50",
+    "stats": {
+      "answers": {
+        "bathroom": 3354,
+        "bedroom": 3283,
+        "garden": 3387,
+        "hallway": 3379,
+        "kitchen": 3265,
+        "office": 3332
+      },
+      "episodes": 4000,
+      "movement_actors": {
+        "Daniel": 9992,
+        "John": 9974,
+        "Mary": 10040,
+        "Sandra": 9994
+      },
+      "movement_locations": {
+        "bathroom": 6681,
+        "bedroom": 6617,
+        "garden": 6667,
+        "hallway": 6698,
+        "kitchen": 6656,
+        "office": 6681
+      },
+      "question_support_movement_age": {
+        "1": 9022,
+        "2": 5744,
+        "3": 2736,
+        "4": 1688,
+        "5": 810
+      },
+      "questions": 20000
+    }
+  },
+  "note": "Approximate QA1 generator, not an exact reproduction of the v1.2 simulator; original test untouched. Extra examples and generated stories do not overlap original test; the original published train/test already share 16 exact (story, question, answer) records.",
+  "original_published_train_test_example_overlap": 16,
+  "original_test": {
+    "path": "artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt",
+    "sha256": "55acf66cef2f6d798e2aa1d056e1ec8f24e910ea9215b639450574321132959b",
+    "stats": {
+      "answers": {
+        "bathroom": 149,
+        "bedroom": 171,
+        "garden": 187,
+        "hallway": 154,
+        "kitchen": 157,
+        "office": 182
+      },
+      "episodes": 200,
+      "movement_actors": {
+        "Daniel": 501,
+        "John": 512,
+        "Mary": 464,
+        "Sandra": 523
+      },
+      "movement_locations": {
+        "bathroom": 343,
+        "bedroom": 328,
+        "garden": 349,
+        "hallway": 301,
+        "kitchen": 342,
+        "office": 337
+      },
+      "question_support_movement_age": {
+        "1": 432,
+        "2": 276,
+        "3": 158,
+        "4": 91,
+        "5": 43
+      },
+      "questions": 1000
+    }
+  },
+  "original_train": {
+    "path": "artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt",
+    "sha256": "749ea9f7c99070feb2d88c975a254417a0dcc8274add4435ae5ae24c7afc7e9d",
+    "stats": {
+      "answers": {
+        "bathroom": 1733,
+        "bedroom": 1644,
+        "garden": 1663,
+        "hallway": 1657,
+        "kitchen": 1644,
+        "office": 1659
+      },
+      "episodes": 2000,
+      "movement_actors": {
+        "Daniel": 5001,
+        "John": 4996,
+        "Mary": 5013,
+        "Sandra": 4990
+      },
+      "movement_locations": {
+        "bathroom": 3400,
+        "bedroom": 3284,
+        "garden": 3299,
+        "hallway": 3361,
+        "kitchen": 3328,
+        "office": 3328
+      },
+      "question_support_movement_age": {
+        "1": 4520,
+        "2": 2895,
+        "3": 1325,
+        "4": 857,
+        "5": 403
+      },
+      "questions": 10000
+    }
+  },
+  "seed": 20261020,
+  "test_story_collisions_rejected": 10
+}

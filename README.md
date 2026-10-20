@@ -60,6 +60,36 @@ matching the original test. The published train/test **already** share 16
 exact `(story, question, answer)` records; the extension does not remove or
 add to that pre-existing overlap.
 
+### Nested 40k train extension
+
+After the 20k train run, Alex reported ~77% accuracy on the unchanged
+published test (versus up to 72.3% with 10k). To probe the same learning
+curve, `datasets/qa1-extended-40k/qa1_merged_40k_train.txt` adds another
+**20k** generated Task 1 questions. The existing 20k train is an **exact
+byte-for-byte prefix**; the additional tranche is also in
+`qa1_extra_20k_train.txt`. The original test remains untouched. The
+`datasets/qa1-extended-40k/manifest.json` records the seed, input and output
+hashes, counts and language/support-recency statistics; the same caveat about
+synthetic versus published distribution applies.
+
+Use the **same early-only configuration** as the 20k experiment and change
+only `--train-file` and `--output` (do not overwrite its checkpoint):
+
+```bash
+python3 scripts/train_babi_memory.py \
+  --config path/to/your-early-four-config.yaml \
+  --train-file datasets/qa1-extended-40k/qa1_merged_40k_train.txt \
+  --output runs/babi-memory/early-40k.pt
+```
+
+The prior 20k run and 40k run should be evaluated on the same original test
+file, with optimizer steps and presented-example counts logged separately.
+To regenerate the exact 40k file from the *original* train/test, invoke
+`scripts/extend_babi_qa1.py` as above with `--additional-examples 30000`,
+the same `--seed 20261020`, and a fresh `--output-dir`. The first 10k
+generated questions remain identical to the 20k extension; the generator
+rejects repeats against all accepted earlier examples.
+
 ## First milestone: bAbI Task 1
 
 Dataset: bAbI Tasks v1.2, `en-10k/qa1_single-supporting-fact_{train,test}.txt`.

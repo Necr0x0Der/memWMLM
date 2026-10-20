@@ -55,6 +55,20 @@ class ExtensionTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 build_dataset(train, test, root / "out", additional_examples=10, seed=123)
 
+    def test_same_seed_larger_extension_preserves_smaller_prefix(self):
+        from random import Random
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            train, test = root / "train.txt", root / "test.txt"
+            train.write_text("\n".join(generate_episode(Random(1))) + "\n", encoding="utf-8")
+            test.write_text("\n".join(generate_episode(Random(2))) + "\n", encoding="utf-8")
+            small = build_dataset(train, test, root / "small", additional_examples=10, seed=123)
+            large = build_dataset(train, test, root / "large", additional_examples=20, seed=123)
+            small_bytes = Path(small["merged_train"]["path"]).read_bytes()
+            large_bytes = Path(large["merged_train"]["path"]).read_bytes()
+            self.assertTrue(large_bytes.startswith(small_bytes))
+            self.assertEqual(large["merged_train"]["stats"]["questions"], 25)
+
 
 if __name__ == "__main__":
     unittest.main()

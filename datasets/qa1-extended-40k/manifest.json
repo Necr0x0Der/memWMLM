@@ -1,0 +1,173 @@
+{
+  "additional_examples": 30000,
+  "collisions_rejected": 0,
+  "example_collisions_rejected": 1918,
+  "format": "babi-qa1-extension-v1",
+  "generated_train": {
+    "path": null,
+    "regenerate_as": "artifacts/babi/rebuilt-qa1-40k/qa1_extra_30000_train.txt",
+    "sha256": "bdaebf741ce56b54946ff1da388334b1b913daed2d565bb2bd57629fd7a874f5",
+    "stats": {
+      "answers": {
+        "bathroom": 5001,
+        "bedroom": 5018,
+        "garden": 5088,
+        "hallway": 5011,
+        "kitchen": 4958,
+        "office": 4924
+      },
+      "episodes": 6000,
+      "movement_actors": {
+        "Daniel": 14960,
+        "John": 14950,
+        "Mary": 15091,
+        "Sandra": 14999
+      },
+      "movement_locations": {
+        "bathroom": 9911,
+        "bedroom": 10076,
+        "garden": 10102,
+        "hallway": 9938,
+        "kitchen": 10068,
+        "office": 9905
+      },
+      "question_support_movement_age": {
+        "1": 13512,
+        "2": 8599,
+        "3": 4170,
+        "4": 2533,
+        "5": 1186
+      },
+      "questions": 30000
+    }
+  },
+  "generation": {
+    "command": "python3 scripts/extend_babi_qa1.py --train-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt --test-file artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt --output-dir artifacts/babi/rebuilt-qa1-40k --additional-examples 30000 --seed 20261020",
+    "verification": "generated merged 40k SHA-256 and first-20k prefix; suffix matches new tranche"
+  },
+  "merged_train": {
+    "path": "datasets/qa1-extended-40k/qa1_merged_40k_train.txt",
+    "sha256": "fb56ad1203d86fd01d1b1555067076bc3151dba702bc94791eb950095748ed8e",
+    "stats": {
+      "answers": {
+        "bathroom": 6734,
+        "bedroom": 6662,
+        "garden": 6751,
+        "hallway": 6668,
+        "kitchen": 6602,
+        "office": 6583
+      },
+      "episodes": 8000,
+      "movement_actors": {
+        "Daniel": 19961,
+        "John": 19946,
+        "Mary": 20104,
+        "Sandra": 19989
+      },
+      "movement_locations": {
+        "bathroom": 13311,
+        "bedroom": 13360,
+        "garden": 13401,
+        "hallway": 13299,
+        "kitchen": 13396,
+        "office": 13233
+      },
+      "question_support_movement_age": {
+        "1": 18032,
+        "2": 11494,
+        "3": 5495,
+        "4": 3390,
+        "5": 1589
+      },
+      "questions": 40000
+    }
+  },
+  "new_tranche_20k": {
+    "episodes": 4000,
+    "path": "datasets/qa1-extended-40k/qa1_extra_20k_train.txt",
+    "questions": 20000,
+    "sha256": "a227d5f12568fb1b70694a8753c661f1b64488f9285fa41f34d8f52889f5c57b"
+  },
+  "note": "Approximate QA1 generator, not an exact reproduction of the v1.2 simulator; original test untouched. This 40k train contains the exact previously published 20k train as a byte-identical prefix; the last 20k questions are an additional tranche. The original published train/test already share 16 exact examples; this generator adds none.",
+  "original_test": {
+    "path": "artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_test.txt",
+    "sha256": "55acf66cef2f6d798e2aa1d056e1ec8f24e910ea9215b639450574321132959b",
+    "stats": {
+      "answers": {
+        "bathroom": 149,
+        "bedroom": 171,
+        "garden": 187,
+        "hallway": 154,
+        "kitchen": 157,
+        "office": 182
+      },
+      "episodes": 200,
+      "movement_actors": {
+        "Daniel": 501,
+        "John": 512,
+        "Mary": 464,
+        "Sandra": 523
+      },
+      "movement_locations": {
+        "bathroom": 343,
+        "bedroom": 328,
+        "garden": 349,
+        "hallway": 301,
+        "kitchen": 342,
+        "office": 337
+      },
+      "question_support_movement_age": {
+        "1": 432,
+        "2": 276,
+        "3": 158,
+        "4": 91,
+        "5": 43
+      },
+      "questions": 1000
+    }
+  },
+  "original_train": {
+    "path": "artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt",
+    "sha256": "749ea9f7c99070feb2d88c975a254417a0dcc8274add4435ae5ae24c7afc7e9d",
+    "stats": {
+      "answers": {
+        "bathroom": 1733,
+        "bedroom": 1644,
+        "garden": 1663,
+        "hallway": 1657,
+        "kitchen": 1644,
+        "office": 1659
+      },
+      "episodes": 2000,
+      "movement_actors": {
+        "Daniel": 5001,
+        "John": 4996,
+        "Mary": 5013,
+        "Sandra": 4990
+      },
+      "movement_locations": {
+        "bathroom": 3400,
+        "bedroom": 3284,
+        "garden": 3299,
+        "hallway": 3361,
+        "kitchen": 3328,
+        "office": 3328
+      },
+      "question_support_movement_age": {
+        "1": 4520,
+        "2": 2895,
+        "3": 1325,
+        "4": 857,
+        "5": 403
+      },
+      "questions": 10000
+    }
+  },
+  "prior_20k": {
+    "path": "datasets/qa1-extended-20k/qa1_merged_20k_train.txt",
+    "questions": 20000,
+    "sha256": "298eccce82737aea348e17590bcec28b58cf4bb7017458c940613752dcbb4e50"
+  },
+  "seed": 20261020,
+  "test_story_collisions_rejected": 40
+}

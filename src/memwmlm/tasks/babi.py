@@ -13,10 +13,23 @@ class BabiVariant(StrEnum):
     FULL_CONTEXT = "full_context"
 
 
-INSTRUCTION = (
+LEGACY_LOCATION_INSTRUCTION = (
     "This is a bAbI question-answering task. "
     "Answer with exactly one location word from the story. Do not explain your answer."
 )
+GENERAL_INSTRUCTION = (
+    "This is a bAbI question-answering task. "
+    "Answer with exactly one word. Do not explain your answer."
+)
+INSTRUCTION = GENERAL_INSTRUCTION
+PROMPT_VERSIONS = {"legacy_location": LEGACY_LOCATION_INSTRUCTION, "general_one_word": GENERAL_INSTRUCTION}
+
+
+def prompt_instruction(version: str) -> str:
+    try:
+        return PROMPT_VERSIONS[version]
+    except KeyError as error:
+        raise ValueError(f"Unknown prompt version: {version!r}") from error
 
 
 @dataclass(frozen=True)

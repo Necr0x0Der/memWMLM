@@ -12,6 +12,7 @@ from memwmlm.data.babi import BabiExample
 from memwmlm.memory.embedding_memory import MemoryState
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import INSTRUCTION
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 from memwmlm.training.reset_pair import _pad_id
 
@@ -31,6 +32,7 @@ def evaluate_memory_babi(
     candidates: Sequence[str],
     scoring: str,
     max_new_tokens: int,
+    instruction: str = INSTRUCTION,
 ) -> MemoryEvaluationResult:
     """Evaluate one-example-at-a-time to keep runtime memory unambiguous."""
 
@@ -40,7 +42,7 @@ def evaluate_memory_babi(
     correct = 0
     for example in examples:
         memory = _write_one(model, tokenizer, formatter(render_source_episode(example)))
-        prefix = formatter(render_application_episode(example))
+        prefix = formatter(render_application_episode(example, instruction))
         if scoring == "candidate_likelihood":
             prediction = _predict_candidate(model, tokenizer, prefix, candidates, memory)
         else:

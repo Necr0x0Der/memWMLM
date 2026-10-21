@@ -16,6 +16,7 @@ from memwmlm.evaluation.memory_babi import _candidate_log_likelihood, _write_one
 from memwmlm.memory.embedding_memory import MemoryState
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import prompt_instruction
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 from memwmlm.training.reset_pair import _pad_id
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
@@ -80,6 +81,8 @@ def main() -> None:
         raise ValueError("--examples and --max-new-tokens must be positive")
 
     model, tokenizer, checkpoint = load_model(args)
+    prompt_version = checkpoint.get("prompt_version", "legacy_location")
+    instruction = prompt_instruction(prompt_version)
     candidates = answer_vocabulary(load_babi_task(args.train_file))
     examples = load_babi_task(args.evaluation_file)
     selected = random.Random(args.seed).sample(examples, k=min(args.examples, len(examples)))
@@ -87,7 +90,7 @@ def main() -> None:
 
     for index, example in enumerate(selected, 1):
         source = render_source_episode(example)
-        application = render_application_episode(example)
+        application = render_application_episode(example, instruction)
         memory = _write_one(model, tokenizer, formatter(source))
         if args.memory_variant == "null_memory":
             memory = MemoryState(torch.zeros_like(memory.keys), torch.zeros_like(memory.values))
@@ -110,6 +113,7 @@ def main() -> None:
             "candidate_correct": candidate_scores[0]["candidate"] == example.answer,
             "memory_variant": args.memory_variant,
             "checkpoint_step": checkpoint["step"],
+            "prompt_version": prompt_version,
         }, ensure_ascii=False, indent=2), flush=True)
     model.close()
 

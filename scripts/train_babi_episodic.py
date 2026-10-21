@@ -14,6 +14,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from memwmlm.data.babi import load_babi_task
 from memwmlm.models.episodic_qwen import EpisodicConfig, FrozenQwenWithEpisodicKV
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import PROMPT_VERSIONS, prompt_instruction
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 from memwmlm.training.reset_pair import causal_answer_loss
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
@@ -23,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path)
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default="general_one_word")
     parser.add_argument("--train-file", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--device", default="cuda")
@@ -49,9 +51,9 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def make_training_ids(tokenizer, formatter, example, device):
+def make_training_ids(tokenizer, formatter, example, device, instruction):
     source_ids = tokenizer(formatter(render_source_episode(example)), add_special_tokens=True).input_ids
-    prefix_ids = tokenizer(formatter(render_application_episode(example)), add_special_tokens=True).input_ids
+    prefix_ids = tokenizer(formatter(render_application_episode(example, instruction)), add_special_tokens=True).input_ids
     target_ids = tokenizer(example.answer, add_special_tokens=False).input_ids + [tokenizer.eos_token_id]
     if not prefix_ids or not target_ids:
         raise ValueError("Empty application prefix or target")
@@ -64,6 +66,7 @@ def make_training_ids(tokenizer, formatter, example, device):
 
 def main() -> None:
     args = parse_args()
+    instruction = prompt_instruction(args.prompt_version)
     if args.train_file is None or args.output is None:
         raise ValueError("train-file and output are required")
     if min(args.steps, args.log_every, args.save_every) <= 0 or args.lora_rank < 0:
@@ -94,7 +97,7 @@ def main() -> None:
                       "trainable_parameters": sum(p.numel() for p in parameters)}, default=str), flush=True)
     for step in range(1, args.steps + 1):
         example = rng.choices(examples, k=1)[0]
-        source_ids, application_ids, labels = make_training_ids(tokenizer, formatter, example, device)
+        source_ids, application_ids, labels = make_training_ids(tokenizer, formatter, example, device, instruction)
         memory = model.encode(source_ids)
         outputs = model(application_ids, memory=memory, use_cache=False)
         loss = causal_answer_loss(outputs.logits, labels)
@@ -107,6 +110,7 @@ def main() -> None:
         if step % args.save_every == 0 or step == args.steps:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             torch.save({"format_version": 1, "architecture": "episodic_kv_reader",
+                        "prompt_version": args.prompt_version,
                         "model": args.model, "config": config.__dict__, "step": step,
                         "seed": args.seed, "train_file": str(args.train_file),
                         "trainable_state_dict": model.trainable_state_dict(),

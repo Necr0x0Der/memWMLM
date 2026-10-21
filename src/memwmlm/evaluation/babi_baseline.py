@@ -8,7 +8,7 @@ from typing import Sequence
 
 from memwmlm.data.babi import BabiExample
 from memwmlm.models.candidate_scorer import AnswerScorer
-from memwmlm.tasks.babi import BabiVariant, render_babi_prompt
+from memwmlm.tasks.babi import INSTRUCTION, BabiVariant, render_babi_prompt
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,7 @@ def evaluate_babi_variant(
     candidates: Sequence[str],
     variant: BabiVariant,
     prompt_formatter: Callable[[str], str] | None = None,
+    instruction: str = INSTRUCTION,
 ) -> BabiEvaluationResult:
     """Run exact candidate scoring for one fixed source-visibility variant."""
 
@@ -33,7 +34,7 @@ def evaluate_babi_variant(
 
     correct = 0
     for example in examples:
-        prompt = render_babi_prompt(example, variant)
+        prompt = render_babi_prompt(example, variant, instruction=instruction)
         prefix = prompt_formatter(prompt.prefix) if prompt_formatter is not None else prompt.prefix
         prediction = scorer.predict(prefix, candidates)
         correct += prediction.candidate == prompt.target

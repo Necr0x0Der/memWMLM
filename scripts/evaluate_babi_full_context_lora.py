@@ -14,6 +14,7 @@ from memwmlm.data.babi import answer_vocabulary, load_babi_task
 from memwmlm.evaluation.babi_baseline import evaluate_babi_variant
 from memwmlm.models.candidate_scorer import CausalCandidateScorer
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import PROMPT_VERSIONS, prompt_instruction
 from memwmlm.tasks.babi import BabiVariant
 from memwmlm.training.full_context_lora import FullContextLoRA
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
@@ -23,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--checkpoint", type=Path, default=None)
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default=None)
     parser.add_argument("--train-file", type=Path, default=None)
     parser.add_argument("--evaluation-file", type=Path, default=None)
     parser.add_argument("--split", choices=("train", "test", "both"), default="both")
@@ -49,6 +51,10 @@ def main() -> None:
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     if checkpoint.get("format") != "babi_full_context_lora_v1":
         raise ValueError("Not a bAbI full-context LoRA v1 checkpoint")
+    prompt_version = checkpoint.get("prompt_version", "legacy_location")
+    if args.prompt_version is not None and args.prompt_version != prompt_version:
+        raise ValueError(f"Prompt mismatch: checkpoint={prompt_version}, requested={args.prompt_version}")
+    instruction = prompt_instruction(prompt_version)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint["model"])
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -67,10 +73,11 @@ def main() -> None:
     results = {}
     for split in chosen:
         examples = splits[split][: args.max_examples]
-        result = evaluate_babi_variant(scorer, examples, candidates, BabiVariant.FULL_CONTEXT, formatter)
+        result = evaluate_babi_variant(scorer, examples, candidates, BabiVariant.FULL_CONTEXT, formatter, instruction)
         results[split] = {"examples": result.examples, "correct": result.correct, "accuracy": result.accuracy}
     payload = {
         "format": "babi_full_context_lora_eval_v1",
+        "prompt_version": prompt_version,
         "model": checkpoint["model"], "checkpoint": str(args.checkpoint), "checkpoint_step": checkpoint["step"],
         "lora": model.summary(), "train_file": str(args.train_file), "evaluation_file": str(args.evaluation_file),
         "candidate_vocabulary": list(candidates), "variant": BabiVariant.FULL_CONTEXT.value,

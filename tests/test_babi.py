@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from memwmlm.data.babi import answer_vocabulary, load_babi_task
-from memwmlm.tasks.babi import BabiVariant, render_babi_prompt
+from memwmlm.tasks.babi import BabiVariant, INSTRUCTION, GENERAL_INSTRUCTION, LEGACY_LOCATION_INSTRUCTION, prompt_instruction, render_babi_prompt
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 
 
@@ -50,3 +50,22 @@ def test_reset_pair_source_omits_later_question(tmp_path: Path) -> None:
     assert "Where is Mary?" not in source
     assert "Question: Where is Mary?" in application
     assert "Mary went to the kitchen." not in application
+
+
+def test_prompt_versions_preserve_legacy_and_support_color_answers(tmp_path: Path) -> None:
+    dataset = tmp_path / "task.txt"
+    dataset.write_text("1 Lily is gray.\n2 What color is Lily?\tgray\t1\n", encoding="utf-8")
+    example = load_babi_task(dataset)[0]
+
+    assert prompt_instruction("legacy_location") == LEGACY_LOCATION_INSTRUCTION
+    assert LEGACY_LOCATION_INSTRUCTION == (
+        "This is a bAbI question-answering task. "
+        "Answer with exactly one location word from the story. Do not explain your answer."
+    )
+    assert prompt_instruction("general_one_word") == GENERAL_INSTRUCTION
+    assert INSTRUCTION == GENERAL_INSTRUCTION
+    assert render_application_episode(example).startswith(GENERAL_INSTRUCTION)
+    assert render_application_episode(example, LEGACY_LOCATION_INSTRUCTION).startswith(LEGACY_LOCATION_INSTRUCTION)
+    assert render_application_episode(example, GENERAL_INSTRUCTION).startswith(GENERAL_INSTRUCTION)
+    assert render_babi_prompt(example, BabiVariant.FULL_CONTEXT, GENERAL_INSTRUCTION).prefix.startswith(GENERAL_INSTRUCTION)
+    assert "location" not in GENERAL_INSTRUCTION

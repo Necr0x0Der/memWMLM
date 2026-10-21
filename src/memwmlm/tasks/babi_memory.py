@@ -15,7 +15,7 @@ def render_source_episode(example: BabiExample) -> str:
     return "\n\n".join((SOURCE_INSTRUCTION, "Story:", "\n".join(example.story)))
 
 
-def render_application_episode(example: BabiExample) -> str:
+def render_application_episode(example: BabiExample, instruction: str = INSTRUCTION) -> str:
     """Render application in the same task/output contract as the baseline."""
 
-    return "\n\n".join((INSTRUCTION, f"Question: {example.question}", "Answer:"))
+    return "\n\n".join((instruction, f"Question: {example.question}", "Answer:"))

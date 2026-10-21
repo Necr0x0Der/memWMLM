@@ -13,6 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from memwmlm.data.babi import answer_vocabulary, load_babi_task
 from memwmlm.models.episodic_qwen import EpisodicConfig, FrozenQwenWithEpisodicKV
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import PROMPT_VERSIONS, prompt_instruction
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
@@ -20,6 +21,7 @@ from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--checkpoint", type=Path)
+    p.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default=None)
     p.add_argument("--train-file", type=Path)
     p.add_argument("--evaluation-file", type=Path)
     p.add_argument("--split", choices=("train", "test", "both"), default="test")
@@ -72,6 +74,10 @@ def main() -> None:
     if a.max_examples is not None and a.max_examples <= 0:
         raise ValueError("max-examples must be positive")
     checkpoint = torch.load(a.checkpoint, map_location="cpu", weights_only=False)
+    prompt_version = checkpoint.get("prompt_version", "legacy_location")
+    if a.prompt_version is not None and a.prompt_version != prompt_version:
+        raise ValueError(f"Prompt mismatch: checkpoint={prompt_version}, requested={a.prompt_version}")
+    instruction = prompt_instruction(prompt_version)
     if checkpoint.get("architecture") != "episodic_kv_reader":
         raise ValueError("Not an episodic KV reader checkpoint")
     if Path(checkpoint["train_file"]).resolve() != a.train_file.resolve():
@@ -104,11 +110,12 @@ def main() -> None:
                 source = torch.tensor([tokenizer(formatter(render_source_episode(source_example)),
                                                  add_special_tokens=True).input_ids], device=device)
                 memory = model.encode(source)
-            app_ids = tokenizer(formatter(render_application_episode(example)), add_special_tokens=True).input_ids
+            app_ids = tokenizer(formatter(render_application_episode(example, instruction)), add_special_tokens=True).input_ids
             predicted = score_candidates(model, tokenizer, app_ids, memory, vocabulary, device)
             correct += predicted == example.answer
         output[split] = {"examples": len(selected), "correct": correct, "accuracy": correct / len(selected)}
     payload = {"model": checkpoint["model"], "checkpoint": str(a.checkpoint), "step": checkpoint["step"],
+               "prompt_version": prompt_version,
                "effective_injection_indices": list(model.indices),
                "variant": a.variant, "candidate_vocabulary": list(vocabulary), "splits": output}
     text = json.dumps(payload, indent=2, sort_keys=True) + "\n"

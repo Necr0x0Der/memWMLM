@@ -15,12 +15,13 @@ from memwmlm.data.babi import answer_vocabulary, load_babi_task
 from memwmlm.evaluation.kv_boundary import split_at_question
 from memwmlm.models.candidate_scorer import CausalCandidateScorer
 from memwmlm.models.qwen import QwenChatPromptFormatter
-from memwmlm.tasks.babi import BabiVariant, render_babi_prompt
+from memwmlm.tasks.babi import PROMPT_VERSIONS, BabiVariant, prompt_instruction, render_babi_prompt
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default="general_one_word")
     parser.add_argument("--train-file", type=Path, required=True)
     parser.add_argument("--evaluation-file", type=Path, required=True)
     parser.add_argument("--max-examples", type=int, default=None,
@@ -143,7 +144,7 @@ def main() -> None:
     mismatch_details = []
     details = []
     for index, example in enumerate(examples):
-        prompt = formatter(render_babi_prompt(example, BabiVariant.FULL_CONTEXT).prefix)
+        prompt = formatter(render_babi_prompt(example, BabiVariant.FULL_CONTEXT, prompt_instruction(args.prompt_version)).prefix)
         source_ids, application_ids = split_at_question(tokenizer, prompt)
         with torch.inference_mode():
             full_scores = {item.candidate: item.log_likelihood for item in baseline.score(prompt, candidates)}
@@ -199,7 +200,7 @@ def main() -> None:
                                                        if single_full_scores is not None else None),
                             "verified_diagnostics": diagnostic})
     payload = {
-        "model": args.model, "train_file": str(args.train_file),
+        "model": args.model, "prompt_version": args.prompt_version, "train_file": str(args.train_file),
         "evaluation_file": str(args.evaluation_file), "candidate_vocabulary": list(candidates),
         "examples": len(examples), "verified_examples": verification_count,
         "full_correct": full_correct, "full_accuracy": full_correct / len(examples),

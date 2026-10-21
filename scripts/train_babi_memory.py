@@ -14,6 +14,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from memwmlm.data.babi import load_babi_task
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import PROMPT_VERSIONS, prompt_instruction
 from memwmlm.training.reset_pair import causal_answer_loss, make_reset_pair_batch
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
@@ -23,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=None, help="Flat YAML defaults; CLI flags override it.")
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
     parser.add_argument("--train-file", type=Path, default=None)
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default="general_one_word")
     parser.add_argument("--output", type=Path, default=None, help="Output .pt checkpoint path.")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
@@ -88,6 +90,7 @@ def checkpoint_payload(
 ) -> dict[str, object]:
     return {
         "format_version": 1,
+        "prompt_version": args.prompt_version,
         "model": args.model,
         "memory_config": {
             "memory_width": args.memory_width,
@@ -134,6 +137,7 @@ def main() -> None:
     args = parse_args()
     if args.train_file is None or args.output is None:
         raise ValueError("--train-file and --output are required, directly or through --config")
+    instruction = prompt_instruction(args.prompt_version)
     if args.steps <= 0 or args.batch_size <= 0 or args.log_every <= 0:
         raise ValueError("steps, batch-size, and log-every must be positive")
     if (
@@ -207,7 +211,7 @@ def main() -> None:
 
     for step in range(1, args.steps + 1):
         selected = rng.choices(examples, k=args.batch_size)
-        batch = make_reset_pair_batch(selected, tokenizer, formatter, device)
+        batch = make_reset_pair_batch(selected, tokenizer, formatter, device, instruction=instruction)
         memory = model.write_memory(batch.source_input_ids, batch.source_attention_mask)
         outputs = model(
             input_ids=batch.application_input_ids,

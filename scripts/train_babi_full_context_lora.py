@@ -13,6 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from memwmlm.data.babi import load_babi_task
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import PROMPT_VERSIONS, prompt_instruction
 from memwmlm.training.full_context_lora import FullContextLoRA, causal_answer_loss, make_full_context_batch
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
@@ -22,6 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", type=Path, default=None)
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
     parser.add_argument("--train-file", type=Path, default=None)
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default="general_one_word")
     parser.add_argument("--output", type=Path, default=None, help="LoRA-only checkpoint .pt")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
@@ -66,6 +68,7 @@ def save(path: Path, model: FullContextLoRA, args: argparse.Namespace, step: int
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save({
         "format": "babi_full_context_lora_v1",
+        "prompt_version": args.prompt_version,
         "model": args.model,
         "adapter_config": {"rank": args.lora_rank, "alpha": args.lora_alpha, "dropout": args.lora_dropout, "layers": args.lora_layers},
         "training_config": {"train_file": str(args.train_file), "dtype": args.dtype, "seed": args.seed,
@@ -81,6 +84,7 @@ def save(path: Path, model: FullContextLoRA, args: argparse.Namespace, step: int
 def main() -> None:
     args = parse_args()
     validate(args)
+    instruction = prompt_instruction(args.prompt_version)
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     examples = load_babi_task(args.train_file)
@@ -96,7 +100,7 @@ def main() -> None:
     rng = random.Random(args.seed)
     print(json.dumps({"event": "model_initialized", "lora": model.summary(), "train_examples": len(examples)}), flush=True)
     for step in range(1, args.steps + 1):
-        batch = make_full_context_batch(rng.choices(examples, k=args.batch_size), tokenizer, formatter, device)
+        batch = make_full_context_batch(rng.choices(examples, k=args.batch_size), tokenizer, formatter, device, instruction)
         outputs = model(input_ids=batch.input_ids, attention_mask=batch.attention_mask, use_cache=False)
         loss = causal_answer_loss(outputs.logits, batch.labels)
         optimizer.zero_grad(set_to_none=True)

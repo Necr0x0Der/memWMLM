@@ -16,6 +16,7 @@ from memwmlm.evaluation.memory_babi import evaluate_memory_babi
 from memwmlm.memory.embedding_memory import MemoryState
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import PROMPT_VERSIONS, prompt_instruction
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
@@ -24,6 +25,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=None, help="Flat YAML defaults; CLI flags override it.")
     parser.add_argument("--checkpoint", type=Path, default=None)
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default=None,
+                        help="Defaults to checkpoint prompt; old checkpoints use legacy_location.")
     parser.add_argument("--train-file", type=Path, default=None)
     parser.add_argument("--evaluation-file", type=Path, default=None)
     parser.add_argument("--device", default="cuda")
@@ -61,6 +64,10 @@ def main() -> None:
         raise RuntimeError("CUDA is unavailable; pass --device cpu only for a small debug run")
 
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+    prompt_version = checkpoint.get("prompt_version", "legacy_location")
+    if args.prompt_version is not None and args.prompt_version != prompt_version:
+        raise ValueError(f"Prompt mismatch: checkpoint={prompt_version}, requested={args.prompt_version}")
+    instruction = prompt_instruction(prompt_version)
     backbone_name = checkpoint["model"]
     config = MemoryQwenConfig(**checkpoint["memory_config"])
     tokenizer = AutoTokenizer.from_pretrained(backbone_name)
@@ -98,12 +105,14 @@ def main() -> None:
             examples = examples[: args.max_examples]
         if args.memory_variant == "memory":
             result = evaluate_memory_babi(
-                model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens
+                model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens,
+                instruction=instruction,
             )
         else:
             result = evaluate_control_variant(
                 model, tokenizer, examples, candidates, args.scoring, args.max_new_tokens,
                 memory_variant=args.memory_variant, seed=args.seed,
+                instruction=instruction,
             )
         split_results[split] = {
             "examples": result.examples,
@@ -112,6 +121,7 @@ def main() -> None:
         }
     payload = {
         "checkpoint": str(args.checkpoint),
+        "prompt_version": prompt_version,
         "model": backbone_name,
         "effective_injection_indices": list(model.layer_indices),
         "memory_variant": args.memory_variant,
@@ -136,6 +146,7 @@ def evaluate_control_variant(
     max_new_tokens: int,
     memory_variant: str,
     seed: int,
+    instruction: str,
 ):
     """Evaluate controls by replacing the per-example state before application."""
 
@@ -166,7 +177,7 @@ def evaluate_control_variant(
 
     correct = 0
     for example, memory in zip(examples, states, strict=True):
-        prefix = formatter(render_application_episode(example))
+        prefix = formatter(render_application_episode(example, instruction))
         if scoring == "candidate_likelihood":
             answer = _predict_candidate(model, tokenizer, prefix, candidates, memory)
         else:

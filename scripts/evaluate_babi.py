@@ -15,12 +15,13 @@ from memwmlm.evaluation.babi_baseline import evaluate_babi_variant
 from memwmlm.models.candidate_scorer import CausalCandidateScorer
 from memwmlm.models.generation_scorer import FreeGenerationScorer
 from memwmlm.models.qwen import QwenChatPromptFormatter
-from memwmlm.tasks.babi import BabiVariant
+from memwmlm.tasks.babi import PROMPT_VERSIONS, BabiVariant, prompt_instruction
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
+    parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default="general_one_word")
     parser.add_argument("--train-file", type=Path, required=True)
     parser.add_argument("--evaluation-file", type=Path, required=True)
     parser.add_argument(
@@ -101,6 +102,7 @@ def main() -> None:
             candidates=answer_vocabulary(train_examples),
             variant=BabiVariant(args.variant),
             prompt_formatter=QwenChatPromptFormatter(tokenizer),
+            instruction=prompt_instruction(args.prompt_version),
         )
         split_results[split] = {
             "examples": result.examples,
@@ -109,6 +111,7 @@ def main() -> None:
         }
     payload = {
         "model": args.model,
+        "prompt_version": args.prompt_version,
         "train_file": str(args.train_file),
         "evaluation_file": str(args.evaluation_file),
         "candidate_vocabulary": list(answer_vocabulary(train_examples)),

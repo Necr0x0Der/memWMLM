@@ -15,7 +15,7 @@ from torch import Tensor, nn
 from memwmlm.data.babi import BabiExample
 from memwmlm.models.lora import ToggleableLoRALinear, replace_qwen_projection
 from memwmlm.models.qwen import QwenChatPromptFormatter
-from memwmlm.tasks.babi import BabiVariant, render_babi_prompt
+from memwmlm.tasks.babi import INSTRUCTION, BabiVariant, render_babi_prompt
 from memwmlm.training.reset_pair import causal_answer_loss
 
 
@@ -27,7 +27,8 @@ class FullContextBatch:
 
 
 def make_full_context_batch(
-    examples: Sequence[BabiExample], tokenizer: object, formatter: QwenChatPromptFormatter, device: torch.device
+    examples: Sequence[BabiExample], tokenizer: object, formatter: QwenChatPromptFormatter,
+    device: torch.device, instruction: str = INSTRUCTION,
 ) -> FullContextBatch:
     """Right-pad full-context prompts + answer + EOS; mask all non-answer loss."""
     if not examples:
@@ -38,7 +39,7 @@ def make_full_context_batch(
     sequences: list[list[int]] = []
     starts: list[int] = []
     for example in examples:
-        prefix = formatter(render_babi_prompt(example, BabiVariant.FULL_CONTEXT).prefix)
+        prefix = formatter(render_babi_prompt(example, BabiVariant.FULL_CONTEXT, instruction).prefix)
         prefix_ids = tokenizer(prefix, add_special_tokens=True).input_ids
         answer_ids = tokenizer(example.answer, add_special_tokens=False).input_ids
         if not prefix_ids or not answer_ids:

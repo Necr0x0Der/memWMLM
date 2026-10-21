@@ -10,6 +10,7 @@ from torch import Tensor
 
 from memwmlm.data.babi import BabiExample
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.babi import INSTRUCTION
 from memwmlm.tasks.babi_memory import render_application_episode, render_source_episode
 
 
@@ -28,11 +29,12 @@ def make_reset_pair_batch(
     formatter: QwenChatPromptFormatter,
     device: torch.device,
     append_eos: bool = True,
+    instruction: str = INSTRUCTION,
 ) -> ResetPairBatch:
     """Create source/application inputs with loss only on application answers."""
 
     source_texts = [formatter(render_source_episode(example)) for example in examples]
-    application_prefixes = [formatter(render_application_episode(example)) for example in examples]
+    application_prefixes = [formatter(render_application_episode(example, instruction)) for example in examples]
     source = _tokenize_padded(tokenizer, source_texts, device)
 
     sequences: list[list[int]] = []

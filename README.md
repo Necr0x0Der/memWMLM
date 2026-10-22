@@ -2,6 +2,20 @@
 
 Experimental infrastructure for **writable memory around a frozen language model**.
 
+## Two-prompt exploratory inference
+
+From this repository on a machine with the project dependencies and a trained **pooled-memory** checkpoint:
+
+```bash
+python3 scripts/generate_with_memory.py \
+  --checkpoint runs/babi-memory/your-checkpoint.pt \
+  --source 'Mary moved to the garden.' \
+  --application 'Where is Mary? Answer:' \
+  --max-new-tokens 64
+```
+
+`--source-file` and `--application-file` accept UTF-8 files instead of inline text. Each text is separately wrapped as a Qwen user turn with thinking disabled: the first is encoded once by the trained writer, then *only* the second prompt is placed in Qwen's generation context while the reader accesses the written memory. Source text is not replayed in the application context. The script prints the generated continuation, not the application prompt; use a checkpoint from `scripts/train_babi_memory.py` and only load trusted checkpoint files (PyTorch pickle). The bAbI-trained sidecar has not been trained for general conversation; outputs for arbitrary requests may be short, irrelevant, or otherwise unreliable. Use this as an exploratory probe rather than a measure of general-language quality.
+
 The project starts deliberately below the long-term semantic-memory hypothesis. Its first target is a controlled reset-pair sanity check:
 
 ```text

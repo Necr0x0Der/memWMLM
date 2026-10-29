@@ -57,8 +57,8 @@ class FrozenQwenWithMemory(nn.Module):
         self.writer = SourceWriter(
             hidden_size=hidden_size,
             memory_width=config.memory_width,
-            cells=config.memory_cells,
             heads=config.writer_heads,
+            window=None,
         )
         self.layer_indices = layer_indices
         self.readers = nn.ModuleDict(

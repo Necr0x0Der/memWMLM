@@ -1,0 +1,24 @@
+# Complete default run for the reset-pair embedding-memory smoke test.
+model: Qwen/Qwen3-1.7B
+train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_train.txt
+output: runs/babi-memory/reset-pair.pt
+device: cuda
+dtype: bfloat16
+
+memory_width: 4096
+memory_cells: 32
+writer_heads: 8
+reader_heads: 8
+injection_layers: 4
+gate_bias_init: 0.0
+
+steps: 2000
+batch_size: 8
+learning_rate: 0.0003
+adam_beta1: 0.9
+adam_beta2: 0.999
+weight_decay: 0.01
+max_grad_norm: 1
+seed: 0
+log_every: 50
+save_every: 500

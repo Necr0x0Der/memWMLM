@@ -11,10 +11,10 @@ memory_cells: 32
 writer_heads: 8
 reader_heads: 8
 injection_layers: 4
-gate_bias_init: -2.0
+gate_bias_init: 0.0
 
 # Application-side adapter deliberately off.
-lora_rank: 0
+lora_rank: 8
 lora_alpha: 16.0
 lora_dropout: 0.0
 
@@ -23,8 +23,8 @@ source_lora_rank: 8
 source_lora_alpha: 16.0
 source_lora_dropout: 0.0
 
-steps: 10000
-batch_size: 8
+steps: 20000
+batch_size: 64
 learning_rate: 0.0001
 adam_beta1: 0.9
 adam_beta2: 0.999

@@ -5,12 +5,12 @@ train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_tra
 output: runs/babi-episodic/reader-early.pt
 device: cuda
 dtype: bfloat16
-steps: 2000
-learning_rate: 0.0001
+steps: 200000
+learning_rate: 0.00005
 seed: 0
 injection_indices: [0, 1, 2, 3]
 reader_heads: 8
-gate_bias_init: -2.0
+gate_bias_init: 0.0
 lora_rank: 8
 lora_alpha: 16.0
 log_every: 50

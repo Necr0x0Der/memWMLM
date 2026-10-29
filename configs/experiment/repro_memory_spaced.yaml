@@ -1,0 +1,38 @@
+# Phase-0 whole-text reproduction, reset-pair sidecar.
+# Mirrors babi_memory_spaced.yaml (proven bAbI settings), adapted for the
+# WikiText reproduction dataset:
+#   - readers injected at EARLY layers via injection_indices [0,1,2,3]
+#     (instead of the legacy final-N = [24,25,26,27]).
+#   - BOTH application LoRA (lora_rank) and source LoRA (source_lora_rank)
+#     enabled, so the model adapts to the memory injection.
+# CLI flags override these defaults; see scripts/train_repro_memory.py.
+model: Qwen/Qwen3-1.7B
+train_file: /mnt/work/hyperon/test/dataset/train.jsonl
+output: /mnt/work/hyperon/test/memWMLM/runs/repro_stageA/checkpoint.pt
+device: cuda
+dtype: bfloat16
+
+memory_width: 4096
+memory_cells: 128
+writer_heads: 8
+reader_heads: 8
+injection_indices: [0, 1, 2, 3]
+gate_bias_init: 0.0
+
+lora_rank: 8
+lora_alpha: 16.0
+lora_dropout: 0.1
+source_lora_rank: 8
+source_lora_alpha: 16.0
+source_lora_dropout: 0.1
+
+steps: 80000
+batch_size: 16
+learning_rate: 0.00007
+adam_beta1: 0.9
+adam_beta2: 0.999
+weight_decay: 0.01
+max_grad_norm: null
+seed: 0
+log_every: 50
+save_every: 500

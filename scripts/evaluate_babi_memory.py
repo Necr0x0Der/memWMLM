@@ -169,7 +169,11 @@ def evaluate_control_variant(
             states = states[offset:] + states[:offset]
     elif memory_variant == "null_memory":
         states = [
-            MemoryState(keys=torch.zeros_like(state.keys), values=torch.zeros_like(state.values))
+            MemoryState(
+                keys=torch.zeros_like(state.keys),
+                values=torch.zeros_like(state.values),
+                mask=state.mask,
+            )
             for state in states
         ]
     else:

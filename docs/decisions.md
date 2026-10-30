@@ -136,18 +136,20 @@ Alex also trained the pooled-memory model on a combined **original QA1 10k + QA2
 
 Alex evaluated the pooled-memory variant with post-block injection `[0,1,2,3]` and the same hyperparameters on six original bAbI `en-10k` tasks. In the table, `Spaced` is Alex's label for **separately trained per-task checkpoints**; the placement is early-only, not `[0,9,18,27]`. Entries are train/test accuracy where both were supplied; a lone frozen-Qwen value is test accuracy. `Mixed` is one checkpoint trained across all six tasks; its reported metrics are from a checkpoint **before** a loss spike after 40,000 steps, and are not fully converged.
 
-| Task | Frozen full-context Qwen | Per-task memory (`Spaced`) | Six-task memory (`Mixed`) |
-| --- | --- | --- | --- |
-| `qa1_single-supporting-fact` | test 0.82 | 1.0 / 0.723 | 0.7733 / 0.572 |
-| `qa2_two-supporting-facts` | test 0.496 | 0.994 / 0.816 | 0.9181 / 0.718 |
-| `qa16_basic-induction` | 0.768 / 0.778 | 1.0 / 0.522 | 0.752 / 0.477 |
-| `qa4_two-arg-relations` | 0.3496 / 0.341 | 1.0 / 0.994 | 0.989 / 0.979 |
-| `qa12_conjunction` | 0.665 / 0.664 | 0.997 / 0.698 | 0.8032 / 0.708 |
-| `qa11_basic-coreference` | 0.6802 / 0.68 | 1.00 / 0.814 | 0.8697 / 0.759 |
+| Task | Frozen full-context Qwen | Per-task memory (`Spaced`) | Six-task memory (`Mixed`) | Six-task pos-memory | Six task pos-mem underfit+repro |
+| --- | --- | --- | --- | --- | --- |
+| `qa1_single-supporting-fact` | 0.82 | 1.0 / 0.723 | 0.7733 / 0.572 | 0.995 / 0.549 | 0.956 / 0.915 |
+| `qa2_two-supporting-facts` | 0.496 | 0.994 / 0.816 | 0.9181 / 0.718 | 0.997 / 0.572 | 0.906 / 0.669 |
+| `qa16_basic-induction` | 0.772 | 1.0 / 0.522 | 0.752 / 0.477 | 0.999 / 0.636 | 0.658 / 0.528 |
+| `qa4_two-arg-relations` | 0.344 | 1.0 / 0.994 | 0.989 / 0.979 | 1.0 / 0.981 | 0.807 / 0.780 |
+| `qa12_conjunction` | 0.665 | 0.997 / 0.698 | 0.8032 / 0.708 | 0.996 / 0.670 | 0.923 / 0.890 |
+| `qa11_basic-coreference` | 0.680 | 1.00 / 0.814 | 0.8697 / 0.759 | 0.999 / 0.713 | 0.987 / 0.972 |
 
 Per-task memory beats frozen full-context Qwen on **four of six tests** (QA2, QA4, QA12, QA11), but not QA1 or QA16. Mixed is lower than the corresponding per-task checkpoint on **five of six tests**; QA12 improves slightly (0.698 → 0.708). Mixed is above frozen full-context on QA2, QA4, QA12 and QA11, and below on QA1 and QA16. The QA1 40k synthetic-extension result (99.7% unchanged test) is a *different* per-task training regime from this 10k comparison.
 
 The six-task run learned more slowly; Alex reports a sharp loss increase after 40,000 steps that did not recover, so only a pre-degradation checkpoint was evaluated. This does not yet establish lack of a task-general memory mechanism: joint optimization may be incomplete/unstable, and the evaluation uses a shared prompt that asks for a "location word" even on QA16, whose answer vocabulary contains colors. Check exact mixed data construction, per-task answer vocabularies and evaluation paths, learning-rate/gradient-norm trajectories and checkpoint provenance before attributing the gap to architecture. Alex plans to test training settings; his proposed milestone is a *single* six-task memory checkpoint at least matching frozen full-context Qwen on each test. No architecture change has been selected.
+
+Updata 1: "position-memory" version learns faster. Being trained on one qa1 dataset, it has 1.0 / 0.914 train/test score, which is much better than the initial "bag" memory. On the six-task run, it also (over)fits faster resulting in ~100% accuracy on test. Test scores are comparable to the "bag" memory (with somewhat more uniform results across the tasks, but with more overfittin). This may suppose that the "bag" memory is weaker, and positional information is essential (a bag of memory cells is insufficient), but the architecture itself doesn't automatically learn general memory mechanisms, but rather fits to tasks in these settings.
 
 ## 2026-10-21 — Prompt versions for six-task comparison
 

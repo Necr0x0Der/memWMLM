@@ -14,6 +14,7 @@ class MemoryState:
 
     keys: Tensor  # [batch, cells, memory_width]
     values: Tensor  # [batch, cells, memory_width]
+    mask: Tensor | None = None  # [batch, cells], True = padded/ignored position (optional)
 
 
 class SourceWriter(nn.Module):
@@ -64,7 +65,15 @@ class SourceWriter(nn.Module):
         else:
             cells = self.norm(projected)
         cells = cells + self.mlp(cells)
-        return MemoryState(keys=self.key_projection(cells), values=self.value_projection(cells))
+        # Pad positions become neutral cells; the mask travels with the state so
+        # the reader can exclude them (mirrors how the old pooled writer masked).
+        pad_mask = ~source_mask.bool()
+        cells = cells * source_mask.unsqueeze(-1).to(cells.dtype)
+        return MemoryState(
+            keys=self.key_projection(cells),
+            values=self.value_projection(cells),
+            mask=pad_mask,
+        )
 
 
 class MemoryReader(nn.Module):
@@ -90,6 +99,10 @@ class MemoryReader(nn.Module):
 
     def forward(self, hidden_states: Tensor, memory: MemoryState) -> Tensor:
         queries = self.query_projection(hidden_states)
-        read, _ = self.attention(queries, memory.keys, memory.values, need_weights=False)
+        read, _ = self.attention(
+            queries, memory.keys, memory.values,
+            key_padding_mask=memory.mask,
+            need_weights=False,
+        )
         gate = torch.sigmoid(self.gate_bias + self.gate_projection(hidden_states))
         return gate * self.output_projection(read)

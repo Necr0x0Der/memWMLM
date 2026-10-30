@@ -12,7 +12,7 @@ output: /mnt/work/hyperon/test/memWMLM/runs/repro_stageA/checkpoint.pt
 device: cuda
 dtype: bfloat16
 
-memory_width: 4096
+memory_width: 2048
 memory_cells: 128
 writer_heads: 8
 reader_heads: 8
@@ -26,7 +26,7 @@ source_lora_rank: 8
 source_lora_alpha: 16.0
 source_lora_dropout: 0.1
 
-steps: 80000
+steps: 100000
 batch_size: 16
 learning_rate: 0.00007
 adam_beta1: 0.9

@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
 """
-make_repro_dataset.py — создание датасета для Phase 0 (Stage A: exact reproduction).
+make_repro_dataset.py — create the dataset for Phase 0 (Stage A: exact reproduction).
 
-Консервативно: НЕ меняет memWMLM, только готовит датасет.
+Conservative: does NOT modify memWMLM, only prepares the dataset.
 
-Источник: Salesforce/wikitext, config wikitext-103-raw-v1.
-  - Основной путь: load_dataset (нужен `pip install datasets`).
-  - Fallback: ручной даунлоад parquet с HF hub (если datasets не установлен).
+Source: Salesforce/wikitext, config wikitext-103-raw-v1.
+  - Primary path: load_dataset (requires `pip install datasets`).
+  - Fallback: manual parquet download from the HF hub (if datasets is not installed).
 
-Логика:
-  1. Грузим train + validation + test (raw-v1).
-  2. train → train окна; validation+test → heldout окна (never seen при обучении).
-  3. Фильтруем пустые/короткие строки, разбиваем на предложения, группируем
-     в окна (min..max предложений).
-  4. Берём --fraction train-окон (параметр масштаба, 100k+).
-  5. Сохраняем train.jsonl и heldout.jsonl (id, split, text).
+Logic:
+  1. Load train + validation + test (raw-v1).
+  2. train -> train windows; validation+test -> heldout windows (never seen during training).
+  3. Filter empty/short lines, split into sentences, group
+     into windows (min..max sentences).
+  4. Take --fraction of train windows (scale parameter, 100k+).
+  5. Save train.jsonl and heldout.jsonl (id, split, text).
 
-Примеры:
-  # Полный датасет (~120k train окон):
+Examples:
+  # Full dataset (~120k train windows):
   python scripts/make_repro_dataset.py --fraction 1.0 --max-windows 120000 --output-dir datasets/repro
 
-  # Быстрый тест (5% train):
+  # Quick test (5% train):
   python scripts/make_repro_dataset.py --fraction 0.05 --output-dir datasets/repro
 
-Зависимости: datasets (желательно), pyarrow, pandas, requests.
+Dependencies: datasets (recommended), pyarrow, pandas, requests.
 """
 
 import argparse
@@ -35,12 +35,12 @@ import warnings
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-warnings.filterwarnings("ignore")  # insecure-request warnings (публичный датасет)
+warnings.filterwarnings("ignore")  # insecure-request warnings (public dataset)
 
 REPO = "Salesforce/wikitext"
 CFG = "wikitext-103-raw-v1"
 HF_BASE = f"https://huggingface.co/datasets/{REPO}/resolve/main"
-# файлы для fallback-даунлоада (если datasets не установлен)
+# files for the fallback download (if datasets is not installed)
 WT103_FILES = {
     "train": [
         "wikitext-103-raw-v1/train-00000-of-00002.parquet",
@@ -54,16 +54,16 @@ WT103_FILES = {
 
 
 # ---------------------------------------------------------------------------
-# Загрузка источника
+# Source loading
 # ---------------------------------------------------------------------------
 
 def _clean(texts: List[str], min_len: int = 15) -> List[str]:
-    """Убирает пустые/короткие строки (blank lines в raw-формате)."""
+    """Removes empty/short lines (blank lines in the raw format)."""
     return [t.strip() for t in texts if len(t.strip()) >= min_len]
 
 
 def load_via_hf() -> Dict[str, List[str]]:
-    """Основной путь: load_dataset (Salesforce/wikitext, raw-v1)."""
+    """Primary path: load_dataset (Salesforce/wikitext, raw-v1)."""
     from datasets import load_dataset
     print("      load_dataset('Salesforce/wikitext', 'wikitext-103-raw-v1') ...")
     train = load_dataset(REPO, CFG, split="train")
@@ -81,7 +81,7 @@ def _download_file(rel: str, cache_dir: str) -> str:
     if os.path.exists(dest):
         return dest
     url = f"{HF_BASE}/{rel}"
-    print(f"      скачиваем {url} ...")
+    print(f"      downloading {url} ...")
     r = requests.get(url, timeout=600, stream=True)
     r.raise_for_status()
     with open(dest, "wb") as f:
@@ -92,7 +92,7 @@ def _download_file(rel: str, cache_dir: str) -> str:
 
 
 def load_via_manual(cache_dir: str) -> Dict[str, List[str]]:
-    """Fallback: ручной даунлоад parquet + pyarrow."""
+    """Fallback: manual parquet download + pyarrow."""
     import pyarrow.parquet as pq
     def read_split(rels: List[str]) -> List[str]:
         texts: List[str] = []
@@ -109,20 +109,20 @@ def load_via_manual(cache_dir: str) -> Dict[str, List[str]]:
 
 
 def load_texts(cache_dir: str) -> Dict[str, List[str]]:
-    """Пытается load_dataset, иначе — ручной parquet."""
+    """Tries load_dataset, otherwise manual parquet."""
     try:
         data = load_via_hf()
-        # проверяем, что реально прочитали непустой текст
+        # check that we actually read non-empty text
         if len(data["train"]) == 0:
-            raise RuntimeError("load_dataset вернул пустой train")
+            raise RuntimeError("load_dataset returned empty train")
         return data
     except ImportError:
-        print("      [fallback] datasets не установлен → ручной parquet")
+        print("      [fallback] datasets not installed -> manual parquet")
         return load_via_manual(cache_dir)
 
 
 # ---------------------------------------------------------------------------
-# Обработка
+# Processing
 # ---------------------------------------------------------------------------
 
 def split_sentences(text: str, use_nltk: bool) -> List[str]:
@@ -172,22 +172,22 @@ def stats(items: List[str]) -> Tuple[int, float, float]:
 # ---------------------------------------------------------------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="Создание датасета Phase 0 (Stage A)")
+    ap = argparse.ArgumentParser(description="Create the Phase 0 dataset (Stage A)")
     ap.add_argument("--source", default="wikitext-103",
-                    help="'wikitext-103' (по умолчанию, HF) ИЛИ путь к .txt")
-    ap.add_argument("--cache-dir", default="datasets/repro/.cache", help="Кэш для parquet (fallback)")
+                    help="'wikitext-103' (default, HF) OR a path to .txt")
+    ap.add_argument("--cache-dir", default="datasets/repro/.cache", help="Cache for parquet (fallback)")
     ap.add_argument("--fraction", type=float, default=1.0,
-                    help="Доля train-окон (0..1); параметр масштаба (100k+)")
-    ap.add_argument("--max-windows", type=int, default=0, help="Cap train-окон (0 = без cap)")
+                    help="Fraction of train windows (0..1); scale parameter (100k+)")
+    ap.add_argument("--max-windows", type=int, default=0, help="Cap train windows (0 = no cap)")
     ap.add_argument("--min-sentences", type=int, default=4)
     ap.add_argument("--max-sentences", type=int, default=8)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--use-nltk", action="store_true", help="nltk для split (если доступен)")
-    ap.add_argument("--output-dir", default="datasets/repro", help="Куда писать train/heldout jsonl")
+    ap.add_argument("--use-nltk", action="store_true", help="nltk for splitting (if available)")
+    ap.add_argument("--output-dir", default="datasets/repro", help="Where to write train/heldout jsonl")
     args = ap.parse_args()
 
-    # 1. Текст
-    print("[1/5] Грузим WikiText-103-raw-v1 ...")
+    # 1. Text
+    print("[1/5] Loading WikiText-103-raw-v1 ...")
     if args.source != "wikitext-103":
         files = Path(args.source)
         train_texts = [f.read_text(encoding="utf-8") for f in
@@ -196,10 +196,10 @@ def main():
     else:
         data = load_texts(args.cache_dir)
         train_texts, heldout_texts = data["train"], data["heldout"]
-    print(f"      train строк: {len(train_texts):,} | heldout строк: {len(heldout_texts):,}")
+    print(f"      train lines: {len(train_texts):,} | heldout lines: {len(heldout_texts):,}")
 
-    # 2. Окна
-    print("[2/5] Разбиваем на предложения и группируем в окна...")
+    # 2. Windows
+    print("[2/5] Splitting into sentences and grouping into windows...")
     def windows_from(texts, seed):
         sent = []
         for t in texts:
@@ -209,24 +209,24 @@ def main():
     train_w = windows_from(train_texts, args.seed)
     heldout_w = windows_from(heldout_texts, args.seed + 1000) if heldout_texts else []
 
-    # 3. Берём долю train
-    print(f"[3/5] Train-окон: {len(train_w):,}  (доля {args.fraction}, cap={args.max_windows or '—'})")
+    # 3. Take the train fraction
+    print(f"[3/5] Train windows: {len(train_w):,}  (fraction {args.fraction}, cap={args.max_windows or '—'})")
     train_sel = take_fraction(train_w, args.fraction, args.max_windows)
 
-    # 4. Сохраняем
-    print("[4/5] Сохраняем...")
+    # 4. Save
+    print("[4/5] Saving...")
     out_dir = args.output_dir
     train_items = [{"id": i, "split": "train", "text": w} for i, w in enumerate(train_sel)]
     heldout_items = [{"id": i, "split": "heldout", "text": w} for i, w in enumerate(heldout_w)]
     save_jsonl(train_items, os.path.join(out_dir, "train.jsonl"))
     save_jsonl(heldout_items, os.path.join(out_dir, "heldout.jsonl"))
 
-    # 5. Статистика
-    print("[5/5] Готово.")
+    # 5. Stats
+    print("[5/5] Done.")
     nt, at, mt = stats([d["text"] for d in train_items])
     nh, ah, mh = stats([d["text"] for d in heldout_items])
-    print(f"  train.jsonl   : {nt:,} окон | avg {at:.0f} ток | max {mt} ток")
-    print(f"  heldout.jsonl : {nh:,} окон | avg {ah:.0f} ток | max {mh} ток")
+    print(f"  train.jsonl   : {nt:,} windows | avg {at:.0f} tok | max {mt} tok")
+    print(f"  heldout.jsonl : {nh:,} windows | avg {ah:.0f} tok | max {mh} tok")
     print(f"  -> {out_dir}/")
 
 

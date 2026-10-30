@@ -18,7 +18,7 @@ This repository supports a sequence of falsifiable claims. Do not skip a rung be
 **Question:** Can a trainable writer and reader communicate source information to a frozen Qwen application pass when source tokens are absent?
 
 - Runtime memory is reset for every pair.
-- Writer records source-derived keys/values into a fixed pool of memory segments.
+- Writer records source-derived keys/values into memory segments. (The current implementation is position-aligned: one cell per source position, so the cell count equals the source length rather than a fixed pool.)
 - Application reads those segments via a gated cross-attention/residual pathway.
 - Train only writer, cells, reader, and injection parameters.
 - Compare all variants declared in `architecture.md`.

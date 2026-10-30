@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from typing import Iterator, Sequence
@@ -32,8 +33,15 @@ class MemoryQwenConfig:
     @classmethod
     def from_checkpoint(cls, memory_config: dict[str, object]) -> "MemoryQwenConfig":
         """Build from a checkpoint's ``memory_config``, ignoring keys that were since
-        removed (the vestigial ``memory_cells``) so older checkpoints hydrate cleanly."""
+        removed (the vestigial ``memory_cells``) so older checkpoints hydrate cleanly.
+        Warns about any excess keys the current schema no longer expects."""
         known = {f.name for f in fields(cls)}
+        extra = sorted(k for k in memory_config if k not in known)
+        if extra:
+            warnings.warn(
+                f"Checkpoint memory_config has keys not in {cls.__name__}; ignoring: {extra}",
+                stacklevel=2,
+            )
         return cls(**{k: v for k, v in memory_config.items() if k in known})
 
 

@@ -13,7 +13,6 @@ device: cuda
 dtype: bfloat16
 
 memory_width: 2048
-memory_cells: 128
 writer_heads: 8
 reader_heads: 8
 injection_indices: [0, 1, 2, 3]

@@ -17,7 +17,6 @@ from memwmlm.models.injection_indices import resolve_injection_indices
 @dataclass(frozen=True)
 class MemoryQwenConfig:
     memory_width: int = 512
-    memory_cells: int = 32
     writer_heads: int = 8
     reader_heads: int = 8
     injection_layers: int = 4

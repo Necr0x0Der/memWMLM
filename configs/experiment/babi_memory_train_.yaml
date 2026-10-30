@@ -6,7 +6,6 @@ device: cuda
 dtype: bfloat16
 
 memory_width: 4096
-memory_cells: 32
 writer_heads: 8
 reader_heads: 8
 injection_layers: 4

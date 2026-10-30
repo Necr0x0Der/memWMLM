@@ -423,7 +423,7 @@ The startup JSON reports independent `source` and `application` LoRA parameter
 counts. A config with both ranks nonzero trains both scoped adapters.
 
 For the no-memory capacity control, do not introduce a separate training mode:
-train the same architecture with, for example, `--memory-cells 1 --memory-width
+train the same architecture with, for example, `--memory-width
 32` (or evaluate `--memory-variant null_memory`). The essential comparison is
 whether LoRA improves real `memory` substantially more than this reduced/null
 memory condition.

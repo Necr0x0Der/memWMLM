@@ -55,7 +55,7 @@ def main() -> None:
     qwen = AutoModelForCausalLM.from_pretrained(
         checkpoint["model"], torch_dtype=getattr(torch, args.dtype)
     ).to(args.device)
-    model = FrozenQwenWithMemory(qwen, MemoryQwenConfig(**checkpoint["memory_config"]))
+    model = FrozenQwenWithMemory(qwen, MemoryQwenConfig.from_checkpoint(checkpoint["memory_config"]))
     try:
         model.load_trainable_state_dict(checkpoint["sidecar_state_dict"])
         model.eval()

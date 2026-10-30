@@ -52,7 +52,7 @@ def load_model(args: argparse.Namespace) -> tuple[FrozenQwenWithMemory, object, 
         checkpoint["model"], torch_dtype=getattr(torch, args.dtype)
     )
     qwen.to(args.device)
-    model = FrozenQwenWithMemory(qwen, MemoryQwenConfig(**checkpoint["memory_config"])).to(args.device)
+    model = FrozenQwenWithMemory(qwen, MemoryQwenConfig.from_checkpoint(checkpoint["memory_config"])).to(args.device)
     model.load_trainable_state_dict(checkpoint["sidecar_state_dict"])
     model.eval()
     print(

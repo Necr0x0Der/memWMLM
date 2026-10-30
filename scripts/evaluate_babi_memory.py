@@ -69,7 +69,7 @@ def main() -> None:
         raise ValueError(f"Prompt mismatch: checkpoint={prompt_version}, requested={args.prompt_version}")
     instruction = prompt_instruction(prompt_version)
     backbone_name = checkpoint["model"]
-    config = MemoryQwenConfig(**checkpoint["memory_config"])
+    config = MemoryQwenConfig.from_checkpoint(checkpoint["memory_config"])
     tokenizer = AutoTokenizer.from_pretrained(backbone_name)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token

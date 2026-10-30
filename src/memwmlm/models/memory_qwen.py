@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Iterator, Sequence
 
 import torch
@@ -28,6 +28,13 @@ class MemoryQwenConfig:
     source_lora_alpha: float = 16.0
     source_lora_dropout: float = 0.0
     injection_indices: tuple[int, ...] | None = None
+
+    @classmethod
+    def from_checkpoint(cls, memory_config: dict[str, object]) -> "MemoryQwenConfig":
+        """Build from a checkpoint's ``memory_config``, ignoring keys that were since
+        removed (the vestigial ``memory_cells``) so older checkpoints hydrate cleanly."""
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in memory_config.items() if k in known})
 
 
 class FrozenQwenWithMemory(nn.Module):

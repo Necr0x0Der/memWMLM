@@ -7,7 +7,7 @@
 #     enabled, so the model adapts to the memory injection.
 # CLI flags override these defaults; see scripts/train_repro_memory.py.
 model: Qwen/Qwen3-1.7B
-train_file: /mnt/work/hyperon/test/dataset/train.jsonl
+train_file: datasets/repro/train.jsonl
 output: /mnt/work/hyperon/test/memWMLM/runs/repro_stageA/checkpoint.pt
 device: cuda
 dtype: bfloat16

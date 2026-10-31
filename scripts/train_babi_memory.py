@@ -26,13 +26,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-file", type=Path, default=None)
     parser.add_argument("--prompt-version", choices=tuple(PROMPT_VERSIONS), default="general_one_word")
     parser.add_argument("--output", type=Path, default=None, help="Output .pt checkpoint path.")
+    parser.add_argument(
+        "--init-checkpoint", type=Path, default=None,
+        help="Initialize the sidecar (writer/readers/LoRA) from this checkpoint's sidecar_state_dict "
+             "before training. Optimizer starts fresh (weight init, NOT gradient continuation).",
+    )
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--steps", type=int, default=2_000)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--memory-cells", type=int, default=32)
     parser.add_argument("--memory-width", type=int, default=512)
     parser.add_argument("--writer-heads", type=int, default=8)
     parser.add_argument("--reader-heads", type=int, default=8)
@@ -94,7 +98,6 @@ def checkpoint_payload(
         "model": args.model,
         "memory_config": {
             "memory_width": args.memory_width,
-            "memory_cells": args.memory_cells,
             "writer_heads": args.writer_heads,
             "reader_heads": args.reader_heads,
             "injection_layers": args.injection_layers,
@@ -171,7 +174,6 @@ def main() -> None:
         qwen,
         MemoryQwenConfig(
             memory_width=args.memory_width,
-            memory_cells=args.memory_cells,
             writer_heads=args.writer_heads,
             reader_heads=args.reader_heads,
             injection_layers=args.injection_layers,
@@ -186,6 +188,23 @@ def main() -> None:
         ),
     ).to(device)
     model.train()
+    if args.init_checkpoint is not None:
+        init_ckpt = torch.load(args.init_checkpoint, map_location="cpu", weights_only=False)
+        # Weight init only: load the sidecar (writer/readers/LoRA) into the freshly built model.
+        # The frozen Qwen backbone is reloaded from disk below and is identical across tasks.
+        model.load_trainable_state_dict(init_ckpt["sidecar_state_dict"])
+        print(
+            json.dumps(
+                {
+                    "event": "init_checkpoint_loaded",
+                    "path": str(args.init_checkpoint),
+                    "init_step": init_ckpt.get("step"),
+                    "init_memory_config": init_ckpt.get("memory_config"),
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
     trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
         trainable_parameters,

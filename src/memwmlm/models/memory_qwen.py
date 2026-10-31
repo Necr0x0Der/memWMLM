@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import warnings
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Iterator, Sequence
 
 import torch
@@ -17,7 +18,6 @@ from memwmlm.models.injection_indices import resolve_injection_indices
 @dataclass(frozen=True)
 class MemoryQwenConfig:
     memory_width: int = 512
-    memory_cells: int = 32
     writer_heads: int = 8
     reader_heads: int = 8
     injection_layers: int = 4
@@ -29,6 +29,20 @@ class MemoryQwenConfig:
     source_lora_alpha: float = 16.0
     source_lora_dropout: float = 0.0
     injection_indices: tuple[int, ...] | None = None
+
+    @classmethod
+    def from_checkpoint(cls, memory_config: dict[str, object]) -> "MemoryQwenConfig":
+        """Build from a checkpoint's ``memory_config``, ignoring keys that were since
+        removed (the vestigial ``memory_cells``) so older checkpoints hydrate cleanly.
+        Warns about any excess keys the current schema no longer expects."""
+        known = {f.name for f in fields(cls)}
+        extra = sorted(k for k in memory_config if k not in known)
+        if extra:
+            warnings.warn(
+                f"Checkpoint memory_config has keys not in {cls.__name__}; ignoring: {extra}",
+                stacklevel=2,
+            )
+        return cls(**{k: v for k, v in memory_config.items() if k in known})
 
 
 class FrozenQwenWithMemory(nn.Module):
@@ -57,8 +71,8 @@ class FrozenQwenWithMemory(nn.Module):
         self.writer = SourceWriter(
             hidden_size=hidden_size,
             memory_width=config.memory_width,
-            cells=config.memory_cells,
             heads=config.writer_heads,
+            window=None,
         )
         self.layer_indices = layer_indices
         self.readers = nn.ModuleDict(

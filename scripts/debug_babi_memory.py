@@ -52,7 +52,7 @@ def load_model(args: argparse.Namespace) -> tuple[FrozenQwenWithMemory, object, 
         checkpoint["model"], torch_dtype=getattr(torch, args.dtype)
     )
     qwen.to(args.device)
-    model = FrozenQwenWithMemory(qwen, MemoryQwenConfig(**checkpoint["memory_config"])).to(args.device)
+    model = FrozenQwenWithMemory(qwen, MemoryQwenConfig.from_checkpoint(checkpoint["memory_config"])).to(args.device)
     model.load_trainable_state_dict(checkpoint["sidecar_state_dict"])
     model.eval()
     print(
@@ -93,7 +93,7 @@ def main() -> None:
         application = render_application_episode(example, instruction)
         memory = _write_one(model, tokenizer, formatter(source))
         if args.memory_variant == "null_memory":
-            memory = MemoryState(torch.zeros_like(memory.keys), torch.zeros_like(memory.values))
+            memory = MemoryState(torch.zeros_like(memory.keys), torch.zeros_like(memory.values), mask=memory.mask)
         prefix = formatter(application)
         generation = generate_continuation(model, tokenizer, prefix, memory, args.max_new_tokens)
         candidate_scores = score_candidates(model, tokenizer, prefix, candidates, memory)
@@ -174,6 +174,7 @@ def score_candidates(
     repeated = MemoryState(
         keys=memory.keys.expand(len(suffixes), -1, -1),
         values=memory.values.expand(len(suffixes), -1, -1),
+        mask=memory.mask.expand(len(suffixes), -1) if memory.mask is not None else None,
     )
     logits = model(
         input_ids=input_ids,

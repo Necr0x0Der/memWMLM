@@ -82,6 +82,7 @@ def _predict_candidate(
     repeated_memory = MemoryState(
         keys=memory.keys.expand(len(encoded), -1, -1),
         values=memory.values.expand(len(encoded), -1, -1),
+        mask=memory.mask.expand(len(encoded), -1) if memory.mask is not None else None,
     )
     logits = model(
         input_ids=input_ids,

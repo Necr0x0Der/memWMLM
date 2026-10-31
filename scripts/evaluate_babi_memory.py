@@ -69,7 +69,7 @@ def main() -> None:
         raise ValueError(f"Prompt mismatch: checkpoint={prompt_version}, requested={args.prompt_version}")
     instruction = prompt_instruction(prompt_version)
     backbone_name = checkpoint["model"]
-    config = MemoryQwenConfig(**checkpoint["memory_config"])
+    config = MemoryQwenConfig.from_checkpoint(checkpoint["memory_config"])
     tokenizer = AutoTokenizer.from_pretrained(backbone_name)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -169,7 +169,11 @@ def evaluate_control_variant(
             states = states[offset:] + states[:offset]
     elif memory_variant == "null_memory":
         states = [
-            MemoryState(keys=torch.zeros_like(state.keys), values=torch.zeros_like(state.values))
+            MemoryState(
+                keys=torch.zeros_like(state.keys),
+                values=torch.zeros_like(state.values),
+                mask=state.mask,
+            )
             for state in states
         ]
     else:

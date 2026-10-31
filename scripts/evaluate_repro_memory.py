@@ -56,7 +56,7 @@ def main() -> None:
 
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     backbone_name = checkpoint["model"]
-    config = MemoryQwenConfig(**checkpoint["memory_config"])
+    config = MemoryQwenConfig.from_checkpoint(checkpoint["memory_config"])
     tokenizer = AutoTokenizer.from_pretrained(backbone_name)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token

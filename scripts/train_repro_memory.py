@@ -35,7 +35,6 @@ def parse_args() -> argparse.Namespace:
                         help="Cap application sequence length (prefix+target); tames long windows.")
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--memory-cells", type=int, default=32)
     parser.add_argument("--memory-width", type=int, default=512)
     parser.add_argument("--writer-heads", type=int, default=8)
     parser.add_argument("--reader-heads", type=int, default=8)
@@ -88,7 +87,6 @@ def checkpoint_payload(
         "model": args.model,
         "memory_config": {
             "memory_width": args.memory_width,
-            "memory_cells": args.memory_cells,
             "writer_heads": args.writer_heads,
             "reader_heads": args.reader_heads,
             "injection_layers": args.injection_layers,
@@ -166,7 +164,6 @@ def main() -> None:
         qwen,
         MemoryQwenConfig(
             memory_width=args.memory_width,
-            memory_cells=args.memory_cells,
             writer_heads=args.writer_heads,
             reader_heads=args.reader_heads,
             injection_layers=args.injection_layers,

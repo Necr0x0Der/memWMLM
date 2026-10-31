@@ -14,18 +14,28 @@ class MemoryState:
 
     keys: Tensor  # [batch, cells, memory_width]
     values: Tensor  # [batch, cells, memory_width]
+    mask: Tensor | None = None  # [batch, cells], True = padded/ignored position (optional)
 
 
 class SourceWriter(nn.Module):
-    """Compress frozen source hidden states into a fresh pool of memory cells."""
+    """Compress frozen source hidden states into position-aligned memory cells.
 
-    def __init__(self, hidden_size: int, memory_width: int, cells: int, heads: int) -> None:
+    Each source position becomes one cell (previously the whole source was pooled
+    into a fixed number of concept cells via learned ``queries``). Cells are no
+    longer a position-agnostic bag: cell i summarises source position i, so the
+    reader can retrieve by position (reproduction) and by content (recall/QA).
+    """
+
+    def __init__(self, hidden_size: int, memory_width: int, heads: int, window: int | None = None) -> None:
         super().__init__()
         if memory_width % heads:
             raise ValueError("memory_width must be divisible by heads")
-        self.queries = nn.Parameter(torch.empty(1, cells, memory_width))
         self.source_projection = nn.Linear(hidden_size, memory_width, bias=False)
-        self.attention = nn.MultiheadAttention(memory_width, heads, batch_first=True)
+        # window=None -> one cell per source position (purely positional).
+        # window=W    -> each cell also sees a causal neighbourhood of W positions.
+        self.window = window
+        if window:
+            self.attention = nn.MultiheadAttention(memory_width, heads, batch_first=True)
         self.norm = nn.LayerNorm(memory_width)
         self.mlp = nn.Sequential(
             nn.Linear(memory_width, 2 * memory_width),
@@ -34,24 +44,36 @@ class SourceWriter(nn.Module):
         )
         self.key_projection = nn.Linear(memory_width, memory_width, bias=False)
         self.value_projection = nn.Linear(memory_width, memory_width, bias=False)
-        nn.init.normal_(self.queries, std=0.02)
 
     def forward(self, source_states: Tensor, source_mask: Tensor) -> MemoryState:
-        """Write a distinct memory state for every source in a batch."""
+        """Write one memory cell per source position (a distinct state per example)."""
 
-        batch = source_states.shape[0]
-        source = self.source_projection(source_states)
-        queries = self.queries.expand(batch, -1, -1)
-        pooled, _ = self.attention(
-            queries,
-            source,
-            source,
-            key_padding_mask=~source_mask.bool(),
-            need_weights=False,
-        )
-        cells = self.norm(queries + pooled)
+        projected = self.source_projection(source_states)  # [batch, src_len, memory_width]
+        if self.window:
+            src_len = projected.shape[1]
+            causal_mask = torch.triu(
+                torch.full((src_len, src_len), float("-inf"), device=projected.device),
+                k=1,
+            )
+            windowed, _ = self.attention(
+                projected, projected, projected,
+                key_padding_mask=~source_mask.bool(),
+                attn_mask=causal_mask,
+                need_weights=False,
+            )
+            cells = self.norm(projected + windowed)
+        else:
+            cells = self.norm(projected)
         cells = cells + self.mlp(cells)
-        return MemoryState(keys=self.key_projection(cells), values=self.value_projection(cells))
+        # Pad positions become neutral cells; the mask travels with the state so
+        # the reader can exclude them (mirrors how the old pooled writer masked).
+        pad_mask = ~source_mask.bool()
+        cells = cells * source_mask.unsqueeze(-1).to(cells.dtype)
+        return MemoryState(
+            keys=self.key_projection(cells),
+            values=self.value_projection(cells),
+            mask=pad_mask,
+        )
 
 
 class MemoryReader(nn.Module):
@@ -77,6 +99,10 @@ class MemoryReader(nn.Module):
 
     def forward(self, hidden_states: Tensor, memory: MemoryState) -> Tensor:
         queries = self.query_projection(hidden_states)
-        read, _ = self.attention(queries, memory.keys, memory.values, need_weights=False)
+        read, _ = self.attention(
+            queries, memory.keys, memory.values,
+            key_padding_mask=memory.mask,
+            need_weights=False,
+        )
         gate = torch.sigmoid(self.gate_bias + self.gate_projection(hidden_states))
         return gate * self.output_projection(read)

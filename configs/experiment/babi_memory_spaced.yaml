@@ -5,7 +5,7 @@ train_file: artifacts/babi/tasks_1-20_v1-2/en-10k/qa1_single-supporting-fact_tra
 output: runs/babi-memory/reset-pair-spaced.pt
 device: cuda
 dtype: bfloat16
-memory_width: 2048
+memory_width: 4096
 writer_heads: 8
 reader_heads: 8
 injection_indices: [0, 1, 2, 3]

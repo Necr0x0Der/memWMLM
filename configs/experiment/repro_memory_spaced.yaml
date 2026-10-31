@@ -8,11 +8,11 @@
 # CLI flags override these defaults; see scripts/train_repro_memory.py.
 model: Qwen/Qwen3-1.7B
 train_file: datasets/repro/train.jsonl
-output: /mnt/work/hyperon/test/memWMLM/runs/repro_stageA/checkpoint.pt
+output: runs/repro_stageA/checkpoint.pt
 device: cuda
 dtype: bfloat16
 
-memory_width: 2048
+memory_width: 4096
 writer_heads: 8
 reader_heads: 8
 injection_indices: [0, 1, 2, 3]

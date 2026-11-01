@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 from pathlib import Path
 
 import torch
@@ -16,6 +17,7 @@ from memwmlm.evaluation.repro_memory import (
     evaluate_memory_repro_until_error,
 )
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
+from memwmlm.tasks.repro_memory import choose_sentence_index
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
 
@@ -32,6 +34,16 @@ def parse_args() -> argparse.Namespace:
                         help="full = generate whole window; chain = early-stop at first mismatch.")
     parser.add_argument("--sentence-index", type=int, default=None,
                         help="None = reproduce whole passage; n = print the n-th sentence.")
+    parser.add_argument("--sentence-mode", choices=("fixed", "random"), default="fixed",
+                        help="fixed = one --sentence-index for all; random = sample a per-example target.")
+    parser.add_argument("--whole-prob", type=float, default=0.5,
+                        help="In random mode, probability of the whole passage (vs one sentence).")
+    parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
+                        help="In random mode, skip the final (possibly truncated) sentence (default: on).")
+    parser.add_argument("--include-last", dest="exclude_last", action="store_false",
+                        help="In random mode, include the final sentence in sampling.")
+    parser.add_argument("--eval-seed", type=int, default=0,
+                        help="Seed for per-example sentence sampling in random mode.")
     parser.add_argument("--max-examples", type=int, default=None)
     parser.add_argument("--output", type=Path, default=None)
     parser.set_defaults(**load_config_defaults(config_path_from_argv()))
@@ -85,16 +97,29 @@ def main() -> None:
     if args.max_examples is not None:
         eval_examples = eval_examples[: args.max_examples]
 
+    # In random mode, sample a per-example target (reproducible via --eval-seed);
+    # otherwise sentence_indices=None makes the evaluators use the scalar --sentence-index.
+    if args.sentence_mode == "random":
+        eval_rng = random.Random(args.eval_seed)
+        sentence_indices: list[int | None] = [
+            choose_sentence_index(ex.text, eval_rng, args.whole_prob, args.exclude_last)
+            for ex in eval_examples
+        ]
+    else:
+        sentence_indices = None
+
     if args.mode == "chain":
         result = evaluate_memory_repro_until_error(
             model, tokenizer, eval_examples, max_new_tokens=args.max_new_tokens,
-            sentence_index=args.sentence_index,
+            sentence_index=args.sentence_index, sentence_indices=sentence_indices,
         )
         payload = {
             "checkpoint": str(args.checkpoint),
             "task": checkpoint.get("task", "reproduction"),
             "mode": "chain",
+            "sentence_mode": args.sentence_mode,
             "sentence_index": args.sentence_index,
+            "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
             "model": backbone_name,
             "max_new_tokens": args.max_new_tokens,
             "num_examples": result.examples,
@@ -102,17 +127,20 @@ def main() -> None:
             "mean_ref_len": result.mean_ref_len,
             "exact_correct": result.exact_correct,
             "coverage": result.coverage,
+            "per_position": result.per_position,
         }
     else:
         result = evaluate_memory_repro(
             model, tokenizer, eval_examples, max_new_tokens=args.max_new_tokens,
-            sentence_index=args.sentence_index,
+            sentence_index=args.sentence_index, sentence_indices=sentence_indices,
         )
         payload = {
             "checkpoint": str(args.checkpoint),
             "task": checkpoint.get("task", "reproduction"),
             "mode": "full",
+            "sentence_mode": args.sentence_mode,
             "sentence_index": args.sentence_index,
+            "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
             "model": backbone_name,
             "max_new_tokens": args.max_new_tokens,
             "num_examples": result.examples,
@@ -120,6 +148,7 @@ def main() -> None:
             "accuracy": result.accuracy,
             "mean_token_acc": result.mean_token_acc,
             "mean_loglik": result.mean_loglik,
+            "per_position": result.per_position,
         }
     print(json.dumps(payload, indent=2, sort_keys=True))
     if args.output is not None:

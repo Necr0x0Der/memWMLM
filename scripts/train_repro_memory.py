@@ -15,6 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from memwmlm.data.repro import load_repro_task
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.repro_memory import choose_sentence_index
 from memwmlm.training.repro_reset_pair import causal_repro_loss, make_repro_batch
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
@@ -26,6 +27,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-file", type=Path, default=None)
     parser.add_argument("--sentence-index", type=int, default=None,
                         help="None = reproduce whole passage; n = print the n-th sentence.")
+    parser.add_argument("--sentence-mode", choices=("fixed", "random"), default="fixed",
+                        help="fixed = one --sentence-index for all examples; "
+                             "random = sample a per-example target (whole or one sentence) each step.")
+    parser.add_argument("--whole-prob", type=float, default=0.5,
+                        help="In random mode, probability of asking for the whole passage (vs one sentence).")
+    parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
+                        help="In random mode, skip the final (possibly token-truncated) sentence (default: on).")
+    parser.add_argument("--include-last", dest="exclude_last", action="store_false",
+                        help="In random mode, include the final sentence in sampling.")
     parser.add_argument("--output", type=Path, default=None, help="Output .pt checkpoint path.")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
@@ -84,6 +94,9 @@ def checkpoint_payload(
         "format_version": 1,
         "task": "reproduction",
         "sentence_index": args.sentence_index,
+        "sentence_mode": args.sentence_mode,
+        "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
+        "exclude_last": args.exclude_last if args.sentence_mode == "random" else None,
         "model": args.model,
         "memory_config": {
             "memory_width": args.memory_width,
@@ -144,6 +157,8 @@ def main() -> None:
         raise ValueError("LoRA requires ranks >= 0, alpha > 0, and dropout in [0, 1)")
     if not 0 <= args.adam_beta1 < 1 or not 0 <= args.adam_beta2 < 1:
         raise ValueError("Adam beta values must be in [0, 1)")
+    if not 0.0 <= args.whole_prob <= 1.0:
+        raise ValueError("whole-prob must be in [0, 1]")
     if args.weight_decay < 0:
         raise ValueError("weight-decay must be non-negative")
     if args.max_grad_norm is not None and args.max_grad_norm <= 0:
@@ -193,6 +208,9 @@ def main() -> None:
                 "event": "model_initialized",
                 "task": "reproduction",
                 "sentence_index": args.sentence_index,
+                "sentence_mode": args.sentence_mode,
+                "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
+                "exclude_last": args.exclude_last if args.sentence_mode == "random" else None,
                 "num_examples": len(examples),
                 "memory_config": model.config.__dict__,
                 "effective_injection_indices": list(model.layer_indices),
@@ -206,9 +224,17 @@ def main() -> None:
 
     for step in range(1, args.steps + 1):
         selected = rng.choices(examples, k=args.batch_size)
+        if args.sentence_mode == "random":
+            indices = [
+                choose_sentence_index(example.text, rng, args.whole_prob, args.exclude_last)
+                for example in selected
+            ]
+        else:
+            indices = [args.sentence_index] * len(selected)
         batch = make_repro_batch(
             selected, tokenizer, formatter, device,
             sentence_index=args.sentence_index,
+            sentence_indices=indices,
             max_tokens=args.max_tokens,
         )
         memory = model.write_memory(batch.source_input_ids, batch.source_attention_mask)

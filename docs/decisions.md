@@ -138,7 +138,7 @@ Alex also trained the pooled-memory model on a combined **original QA1 10k + QA2
 
 Alex evaluated the pooled-memory variant with post-block injection `[0,1,2,3]` and the same hyperparameters on six original bAbI `en-10k` tasks. In the table, `Spaced` is Alex's label for **separately trained per-task checkpoints**; the placement is early-only, not `[0,9,18,27]`. Entries are train/test accuracy where both were supplied; a lone frozen-Qwen value is test accuracy. `Mixed` is one checkpoint trained across all six tasks; its reported metrics are from a checkpoint **before** a loss spike after 40,000 steps, and are not fully converged.
 
-| Task | Frozen full-context Qwen 1.7B/4B | Per-task memory (`Spaced`) | Six-task memory (`Mixed`) | Six-task pos-memory | Six task pos-mem underfit+repro | Six task pos-mem 4096cell+repro |
+| Task | Frozen full-context Qwen 1.7B/4B | Per-task memory (`Spaced`, pooled) | Six-task memory (`Mixed`, pooled) | Six-task pos-memory | Six task pos-mem underfit+repro | Six task pos-mem 4096cell+repro |
 | --- | --- | --- | --- | --- | --- | --- |
 | `qa1_single-supporting-fact` | 0.82 / 0.83 | 1.0 / 0.723 | 0.7733 / 0.572 | 0.995 / 0.549 | 0.956 / 0.915 | 0.999 / 0.984 |
 | `qa2_two-supporting-facts` | 0.5 / 0.5 | 0.994 / 0.816 | 0.9181 / 0.718 | 0.997 / 0.572 | 0.906 / 0.669 | 0.998 / 0.824 |
@@ -146,6 +146,8 @@ Alex evaluated the pooled-memory variant with post-block injection `[0,1,2,3]` a
 | `qa4_two-arg-relations` | 0.34 /  0.6 | 1.0 / 0.994 | 0.989 / 0.979 | 1.0 / 0.981 | 0.807 / 0.780 | 1.0 / 1.0 |
 | `qa12_conjunction` | 0.67 / 0.7 | 0.997 / 0.698 | 0.8032 / 0.708 | 0.996 / 0.670 | 0.923 / 0.890 | 1.0 / 0.964 |
 | `qa11_basic-coreference` | 0.68 / 0.61 | 1.00 / 0.814 | 0.8697 / 0.759 | 0.999 / 0.713 | 0.987 / 0.972 | 1.0 / 0.994 |
+
+**Table provenance.** `Per-task memory (Spaced)` and `Six-task memory (Mixed)` are historical **pooled-memory** results: the fixed ~32-cell bag with a Perceiver-style writer. They are retained for comparison but are not the current position-aligned memory. The `Spaced` label is Alex's early-only placement name (`[0,1,2,3]` in these rows), not the earlier `[0,9,18,27]` attempt. `Six-task pos-memory`, `Six task pos-mem underfit+repro`, and `Six task pos-mem 4096cell+repro` are position-aligned results.
 
 Against the **1.7B** frozen full-context baseline, per-task memory beats it on **four of six tests** (QA2, QA4, QA12, QA11), but not QA1 or QA16. Against the **4B** baseline, memory clearly wins on QA2, QA4 and QA11; QA12 is approximately tied/slightly lower (0.698 vs 0.70), and QA1/QA16 remain below. Mixed is lower than the corresponding per-task checkpoint on **five of six tests**; QA12 improves slightly (0.698 → 0.708). Mixed is above the 1.7B frozen baseline on QA2, QA4, QA12 and QA11, and below on QA1 and QA16. The QA1 40k synthetic-extension result (99.7% unchanged test) is a *different* per-task training regime from this 10k comparison.
 

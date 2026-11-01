@@ -37,6 +37,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--include-last", dest="exclude_last", action="store_false",
                         help="In random mode, include the final sentence in sampling.")
     parser.add_argument("--output", type=Path, default=None, help="Output .pt checkpoint path.")
+    parser.add_argument(
+        "--init-checkpoint", type=Path, default=None,
+        help="Initialize the sidecar (writer/readers/LoRA) from this checkpoint's sidecar_state_dict "
+             "before training. Optimizer starts fresh (weight init, NOT gradient continuation).",
+    )
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--steps", type=int, default=2_000)
@@ -77,6 +82,8 @@ def parse_args() -> argparse.Namespace:
         args.train_file = Path(args.train_file)
     if args.output is not None:
         args.output = Path(args.output)
+    if args.init_checkpoint is not None:
+        args.init_checkpoint = Path(args.init_checkpoint)
     return args
 
 
@@ -193,6 +200,24 @@ def main() -> None:
         ),
     ).to(device)
     model.train()
+    if args.init_checkpoint is not None:
+        init_ckpt = torch.load(args.init_checkpoint, map_location="cpu", weights_only=False)
+        # Weight init only: load the sidecar (writer/readers/LoRA) into the freshly built model.
+        # The frozen Qwen backbone is reloaded from disk and is identical across tasks, so a
+        # bAbI or earlier repro checkpoint can warm-start this run. Optimizer still starts fresh.
+        model.load_trainable_state_dict(init_ckpt["sidecar_state_dict"])
+        print(
+            json.dumps(
+                {
+                    "event": "init_checkpoint_loaded",
+                    "path": str(args.init_checkpoint),
+                    "init_step": init_ckpt.get("step"),
+                    "init_memory_config": init_ckpt.get("memory_config"),
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
     trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
         trainable_parameters,

@@ -138,16 +138,16 @@ Alex also trained the pooled-memory model on a combined **original QA1 10k + QA2
 
 Alex evaluated the pooled-memory variant with post-block injection `[0,1,2,3]` and the same hyperparameters on six original bAbI `en-10k` tasks. In the table, `Spaced` is Alex's label for **separately trained per-task checkpoints**; the placement is early-only, not `[0,9,18,27]`. Entries are train/test accuracy where both were supplied; a lone frozen-Qwen value is test accuracy. `Mixed` is one checkpoint trained across all six tasks; its reported metrics are from a checkpoint **before** a loss spike after 40,000 steps, and are not fully converged.
 
-| Task | Frozen full-context Qwen | Per-task memory (`Spaced`) | Six-task memory (`Mixed`) | Six-task pos-memory | Six task pos-mem underfit+repro | Six task pos-mem 4096cell+repro |
+| Task | Frozen full-context Qwen 1.7B/4B | Per-task memory (`Spaced`) | Six-task memory (`Mixed`) | Six-task pos-memory | Six task pos-mem underfit+repro | Six task pos-mem 4096cell+repro |
 | --- | --- | --- | --- | --- | --- | --- |
-| `qa1_single-supporting-fact` | 0.82 | 1.0 / 0.723 | 0.7733 / 0.572 | 0.995 / 0.549 | 0.956 / 0.915 | 0.999 / 0.984 |
-| `qa2_two-supporting-facts` | 0.496 | 0.994 / 0.816 | 0.9181 / 0.718 | 0.997 / 0.572 | 0.906 / 0.669 | 0.998 / 0.824 |
-| `qa16_basic-induction` | 0.772 | 1.0 / 0.522 | 0.752 / 0.477 | 0.999 / 0.636 | 0.658 / 0.528 | 0.990 / 0.894 |
-| `qa4_two-arg-relations` | 0.344 | 1.0 / 0.994 | 0.989 / 0.979 | 1.0 / 0.981 | 0.807 / 0.780 | 1.0 / 1.0 |
-| `qa12_conjunction` | 0.665 | 0.997 / 0.698 | 0.8032 / 0.708 | 0.996 / 0.670 | 0.923 / 0.890 | 1.0 / 0.964 |
-| `qa11_basic-coreference` | 0.680 | 1.00 / 0.814 | 0.8697 / 0.759 | 0.999 / 0.713 | 0.987 / 0.972 | 1.0 / 0.994 |
+| `qa1_single-supporting-fact` | 0.82 / 0.83 | 1.0 / 0.723 | 0.7733 / 0.572 | 0.995 / 0.549 | 0.956 / 0.915 | 0.999 / 0.984 |
+| `qa2_two-supporting-facts` | 0.5 / 0.5 | 0.994 / 0.816 | 0.9181 / 0.718 | 0.997 / 0.572 | 0.906 / 0.669 | 0.998 / 0.824 |
+| `qa16_basic-induction` | 0.77 / 0.77 | 1.0 / 0.522 | 0.752 / 0.477 | 0.999 / 0.636 | 0.658 / 0.528 | 0.990 / 0.894 |
+| `qa4_two-arg-relations` | 0.34 /  0.6 | 1.0 / 0.994 | 0.989 / 0.979 | 1.0 / 0.981 | 0.807 / 0.780 | 1.0 / 1.0 |
+| `qa12_conjunction` | 0.67 / 0.7 | 0.997 / 0.698 | 0.8032 / 0.708 | 0.996 / 0.670 | 0.923 / 0.890 | 1.0 / 0.964 |
+| `qa11_basic-coreference` | 0.68 / 0.61 | 1.00 / 0.814 | 0.8697 / 0.759 | 0.999 / 0.713 | 0.987 / 0.972 | 1.0 / 0.994 |
 
-Per-task memory beats frozen full-context Qwen on **four of six tests** (QA2, QA4, QA12, QA11), but not QA1 or QA16. Mixed is lower than the corresponding per-task checkpoint on **five of six tests**; QA12 improves slightly (0.698 → 0.708). Mixed is above frozen full-context on QA2, QA4, QA12 and QA11, and below on QA1 and QA16. The QA1 40k synthetic-extension result (99.7% unchanged test) is a *different* per-task training regime from this 10k comparison.
+Against the **1.7B** frozen full-context baseline, per-task memory beats it on **four of six tests** (QA2, QA4, QA12, QA11), but not QA1 or QA16. Against the **4B** baseline, memory clearly wins on QA2, QA4 and QA11; QA12 is approximately tied/slightly lower (0.698 vs 0.70), and QA1/QA16 remain below. Mixed is lower than the corresponding per-task checkpoint on **five of six tests**; QA12 improves slightly (0.698 → 0.708). Mixed is above the 1.7B frozen baseline on QA2, QA4, QA12 and QA11, and below on QA1 and QA16. The QA1 40k synthetic-extension result (99.7% unchanged test) is a *different* per-task training regime from this 10k comparison.
 
 The six-task run learned more slowly; Alex reports a sharp loss increase after 40,000 steps that did not recover, so only a pre-degradation checkpoint was evaluated. This does not yet establish lack of a task-general memory mechanism: joint optimization may be incomplete/unstable, and the evaluation uses a shared prompt that asks for a "location word" even on QA16, whose answer vocabulary contains colors. Check exact mixed data construction, per-task answer vocabularies and evaluation paths, learning-rate/gradient-norm trajectories and checkpoint provenance before attributing the gap to architecture. Alex plans to test training settings; his proposed milestone is a *single* six-task memory checkpoint at least matching frozen full-context Qwen on each test. No architecture change has been selected.
 
@@ -180,3 +180,29 @@ Alex completed the six-task pooled-memory training with a lower learning rate, a
 **Training-character change and interpretation.** With 2048 cells the test score plateaued and even dipped slightly while train loss kept falling toward zero (classic overfitting). With 4096 cells train and test improved *together* nearly to the end. Interpretation (open): once memory capacity is exhausted the model has little choice but to specialize its own (frozen-base, LoRA-adapted) weights for the training set — that lowers train loss but does not raise eval score; with enough capacity it keeps offloading to memory instead, so generalization keeps improving. The memory sidecar is itself large, so driving repro loss near zero is not by itself surprising; the notable facts are (1) repro loss *stuck* at 2048 (it is genuinely hard to indirectly memorize all texts in the weights and steer Qwen to generate them), and (2) a *bigger* memory did not overfit *more* — the model learns to use memory when the opportunity exists and only falls back to its own parameters when capacity is insufficient, without extra test gain. On one hand this is good: memory carries the load instead of the parametric body. On the other, the context is stored largely *without compression*, so how it scales and what the win is versus ordinary full context stay open. The resulting model is substantially stronger than frozen Qwen + task-LoRA (on full context), though this should be checked more carefully on the six tasks and is not fully apples-to-apples (the LoRA control is much smaller).
 
 **Planned next stage (open): Stage B — dense no-reasoning QA.** Stage A here is whole-text reproduction; the intended follow-on, once repro is confirmed, is a *dense no-reasoning QA* stage (a fixed prompt over a memorized corpus, minimal explicit reasoning chain). This is a forward-looking direction carried over from the Stage A run report (`runs/repro_stageA/RESULTS.md`), not yet run, and a change of task format is a new experiment under the same writer/reader memory interface.
+
+## 2026-11-01 — Frozen-base reproduction baseline and Qwen3-4B comparison
+
+A separate no-memory baseline was added: `scripts/evaluate_repro_baseline.py` with `evaluation/repro_baseline.py`. It uses the same source/application rendering as the memory evaluator, with `full_context` placing the passage in ordinary Qwen context and `application_only` omitting it; both `chain` and `full` modes are supported. This fills the missing full-context reference for Stage A.
+
+User-reported full-context chain results on `datasets/repro/heldout.jsonl`:
+
+- **Qwen3-1.7B:** `running_exact` 0.08, `running_mean_chain_len` 21.
+- **Qwen3-4B:** `running_exact` 0.06, `running_mean_chain_len` 18.
+
+Interpretation (open): the base model can copy only a short prefix (~20 tokens) and rarely reproduces the whole window exactly; the larger 4B model is not better on this reproduction task. This makes Stage A non-trivial and gives a proper full-context reference. It also reframes the memory result: the 2048 repro memory was around `mean_chain_len` ~16 and exact ~0.005, i.e. not above the 1.7B full-context baseline; the 4096 memory reached `mean_chain_len` ~82 and exact ~0.2, which is a real improvement over base full-context. The Stage A gain is therefore primarily a capacity/representation effect, not merely "the trained model is stronger because it was trained." Exact match should not be the only metric: chain length and teacher-forced likelihood separate storage from greedy-generation stability.
+
+The bAbI table now records both frozen full-context Qwen 1.7B and 4B. Reported values:
+
+| Task | 1.7B | 4B |
+|---|---:|---:|
+| `qa1_single-supporting-fact` | 0.82 | 0.83 |
+| `qa2_two-supporting-facts` | 0.50 | 0.50 |
+| `qa16_basic-induction` | 0.77 | 0.77 |
+| `qa4_two-arg-relations` | 0.34 | 0.60 |
+| `qa12_conjunction` | 0.67 | 0.70 |
+| `qa11_basic-coreference` | 0.68 | 0.61 |
+
+This is not a uniform capability gain: only QA4 shows a substantial improvement, QA12 a small improvement, and QA11 a small regression; the other tasks are essentially unchanged. Plausible interpretations (open): 4B adds competence in particular cognitive skills and possibly factual knowledge, rather than general reasoning; a single-task gain may matter for compound activity but does not establish a global size effect. These are single reported evaluations, not matched multi-seed controls, and prompt/scoring provenance should be recorded before drawing a strong conclusion.
+
+**Proposed follow-up (not selected):** a short-answer factual-knowledge quiz across domains (for example MMLU-style broad knowledge, TriviaQA / NaturalQuestions / SimpleQuestions / Wikidata facts) could separate parametric factual knowledge from reasoning. With memory, such a test would probe a *large factual memory* rather than a small episodic context: whether facts stored in rewritable memory can substitute for facts frozen in model weights. This is a different claim from Stage A reproduction and must be declared as its own experiment.

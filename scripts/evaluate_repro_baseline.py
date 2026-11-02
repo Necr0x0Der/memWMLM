@@ -42,7 +42,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sentence-mode", choices=("fixed", "random"), default="fixed",
                         help="fixed = one --sentence-index for all; random = sample a per-example target.")
     parser.add_argument("--whole-prob", type=float, default=0.5,
-                        help="In random mode, probability of the whole passage (vs one sentence).")
+                        help="Probability of the whole passage (vs one sentence); effective in both modes "
+                             "(fixed mixes whole vs the fixed --sentence-index). With 1.0 always whole.")
     parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
                         help="In random mode, skip the final (possibly truncated) sentence (default: on).")
     parser.add_argument("--include-last", dest="exclude_last", action="store_false",
@@ -98,15 +99,19 @@ def main() -> None:
         eval_examples = eval_examples[: args.max_examples]
 
     # In random mode, sample a per-example target (reproducible via --eval-seed);
-    # otherwise sentence_indices=None makes the evaluators use the scalar --sentence-index.
+    # in fixed mode, still sample per example so --whole-prob mixes whole vs the fixed
+    # --sentence-index. Either way sentence_indices is a list the evaluators consume.
+    eval_rng = random.Random(args.eval_seed)
     if args.sentence_mode == "random":
-        eval_rng = random.Random(args.eval_seed)
         sentence_indices: list[int | None] = [
             choose_sentence_index(ex.text, eval_rng, args.whole_prob, args.exclude_last)
             for ex in eval_examples
         ]
     else:
-        sentence_indices = None
+        sentence_indices = [
+            (None if eval_rng.random() < args.whole_prob else args.sentence_index)
+            for ex in eval_examples
+        ]
 
     if args.mode == "chain":
         result = evaluate_repro_baseline_until_error(

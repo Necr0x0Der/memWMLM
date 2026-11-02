@@ -31,7 +31,9 @@ def parse_args() -> argparse.Namespace:
                         help="fixed = one --sentence-index for all examples; "
                              "random = sample a per-example target (whole or one sentence) each step.")
     parser.add_argument("--whole-prob", type=float, default=0.5,
-                        help="In random mode, probability of asking for the whole passage (vs one sentence).")
+                        help="Probability of asking for the whole passage (vs one sentence); effective in "
+                             "both modes — random mixes whole vs a random sentence, fixed mixes whole vs the "
+                             "fixed --sentence-index. With 1.0 the task is always whole-passage.")
     parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
                         help="In random mode, skip the final (possibly token-truncated) sentence (default: on).")
     parser.add_argument("--include-last", dest="exclude_last", action="store_false",
@@ -255,7 +257,12 @@ def main() -> None:
                 for example in selected
             ]
         else:
-            indices = [args.sentence_index] * len(selected)
+            # fixed mode: whole passage with prob whole_prob, else the fixed sentence_index
+            # (sentence_index=None always yields whole, so the default is unchanged whole-passage).
+            indices = [
+                (None if rng.random() < args.whole_prob else args.sentence_index)
+                for _ in selected
+            ]
         batch = make_repro_batch(
             selected, tokenizer, formatter, device,
             sentence_index=args.sentence_index,

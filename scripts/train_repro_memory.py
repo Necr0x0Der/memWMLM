@@ -15,6 +15,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from memwmlm.data.repro import load_repro_task
 from memwmlm.models.memory_qwen import FrozenQwenWithMemory, MemoryQwenConfig
 from memwmlm.models.qwen import QwenChatPromptFormatter
+from memwmlm.tasks.repro_memory import choose_sentence_index
 from memwmlm.training.repro_reset_pair import causal_repro_loss, make_repro_batch
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
@@ -25,8 +26,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="Qwen/Qwen3-1.7B")
     parser.add_argument("--train-file", type=Path, default=None)
     parser.add_argument("--sentence-index", type=int, default=None,
-                        help="None = reproduce whole passage; n = print the n-th sentence.")
+                        help="Which sentence to reproduce (None = whole passage). Used when a sentence is asked.")
+    parser.add_argument("--sentence-mode", choices=("fixed", "random"), default="fixed",
+                        help="How the sentence target is chosen (only matters when --whole-prob < 1.0): "
+                             "fixed = the same --sentence-index every example; random = a fresh random "
+                             "sentence per example.")
+    parser.add_argument("--whole-prob", type=float, default=1.0,
+                        help="Fraction of steps asking the WHOLE passage vs one sentence. Default 1.0 = "
+                             "whole-passage (the original repro mode); <1.0 enables selective reproduction "
+                             "(a mix). Only meaningful once a sentence target is possible (a --sentence-index "
+                             "in fixed mode, or --sentence-mode random).")
+    parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
+                        help="In random mode, skip the final (possibly token-truncated) sentence (default: on).")
+    parser.add_argument("--include-last", dest="exclude_last", action="store_false",
+                        help="In random mode, include the final sentence in sampling.")
     parser.add_argument("--output", type=Path, default=None, help="Output .pt checkpoint path.")
+    parser.add_argument(
+        "--init-checkpoint", type=Path, default=None,
+        help="Initialize the sidecar (writer/readers/LoRA) from this checkpoint's sidecar_state_dict "
+             "before training. Optimizer starts fresh (weight init, NOT gradient continuation).",
+    )
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--dtype", choices=("bfloat16", "float16", "float32"), default="bfloat16")
     parser.add_argument("--steps", type=int, default=2_000)
@@ -67,6 +86,8 @@ def parse_args() -> argparse.Namespace:
         args.train_file = Path(args.train_file)
     if args.output is not None:
         args.output = Path(args.output)
+    if args.init_checkpoint is not None:
+        args.init_checkpoint = Path(args.init_checkpoint)
     return args
 
 
@@ -84,6 +105,9 @@ def checkpoint_payload(
         "format_version": 1,
         "task": "reproduction",
         "sentence_index": args.sentence_index,
+        "sentence_mode": args.sentence_mode,
+        "whole_prob": args.whole_prob,
+        "exclude_last": args.exclude_last if args.sentence_mode == "random" else None,
         "model": args.model,
         "memory_config": {
             "memory_width": args.memory_width,
@@ -144,6 +168,14 @@ def main() -> None:
         raise ValueError("LoRA requires ranks >= 0, alpha > 0, and dropout in [0, 1)")
     if not 0 <= args.adam_beta1 < 1 or not 0 <= args.adam_beta2 < 1:
         raise ValueError("Adam beta values must be in [0, 1)")
+    if not 0.0 <= args.whole_prob <= 1.0:
+        raise ValueError("whole-prob must be in [0, 1]")
+    if args.sentence_mode == "fixed" and args.whole_prob < 1.0 and args.sentence_index is None:
+        raise ValueError(
+            "--whole-prob < 1.0 with --sentence-mode fixed requires --sentence-index N; "
+            "with index=None the fixed 'sentence' is the whole passage, so whole-prob < 1.0 "
+            "would silently collapse to always whole (no sentences ever asked)."
+        )
     if args.weight_decay < 0:
         raise ValueError("weight-decay must be non-negative")
     if args.max_grad_norm is not None and args.max_grad_norm <= 0:
@@ -178,6 +210,24 @@ def main() -> None:
         ),
     ).to(device)
     model.train()
+    if args.init_checkpoint is not None:
+        init_ckpt = torch.load(args.init_checkpoint, map_location="cpu", weights_only=False)
+        # Weight init only: load the sidecar (writer/readers/LoRA) into the freshly built model.
+        # The frozen Qwen backbone is reloaded from disk and is identical across tasks, so a
+        # bAbI or earlier repro checkpoint can warm-start this run. Optimizer still starts fresh.
+        model.load_trainable_state_dict(init_ckpt["sidecar_state_dict"])
+        print(
+            json.dumps(
+                {
+                    "event": "init_checkpoint_loaded",
+                    "path": str(args.init_checkpoint),
+                    "init_step": init_ckpt.get("step"),
+                    "init_memory_config": init_ckpt.get("memory_config"),
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
     trainable_parameters = [parameter for parameter in model.parameters() if parameter.requires_grad]
     optimizer = torch.optim.AdamW(
         trainable_parameters,
@@ -193,6 +243,9 @@ def main() -> None:
                 "event": "model_initialized",
                 "task": "reproduction",
                 "sentence_index": args.sentence_index,
+                "sentence_mode": args.sentence_mode,
+                "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
+                "exclude_last": args.exclude_last if args.sentence_mode == "random" else None,
                 "num_examples": len(examples),
                 "memory_config": model.config.__dict__,
                 "effective_injection_indices": list(model.layer_indices),
@@ -206,9 +259,22 @@ def main() -> None:
 
     for step in range(1, args.steps + 1):
         selected = rng.choices(examples, k=args.batch_size)
+        if args.sentence_mode == "random":
+            indices = [
+                choose_sentence_index(example.text, rng, args.whole_prob, args.exclude_last)
+                for example in selected
+            ]
+        else:
+            # fixed mode: whole passage with prob whole_prob, else the fixed sentence_index
+            # (sentence_index=None always yields whole, so the default is unchanged whole-passage).
+            indices = [
+                (None if rng.random() < args.whole_prob else args.sentence_index)
+                for _ in selected
+            ]
         batch = make_repro_batch(
             selected, tokenizer, formatter, device,
             sentence_index=args.sentence_index,
+            sentence_indices=indices,
             max_tokens=args.max_tokens,
         )
         memory = model.write_memory(batch.source_input_ids, batch.source_attention_mask)

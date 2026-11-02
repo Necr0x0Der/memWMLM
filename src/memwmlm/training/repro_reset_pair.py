@@ -18,7 +18,7 @@ from memwmlm.tasks.repro_memory import (
     REPRO_INSTRUCTION,
     render_application_episode,
     render_source_episode,
-    sentence_target,
+    target_text,
 )
 from memwmlm.training.reset_pair import _pad_id, _tokenize_padded
 
@@ -40,18 +40,28 @@ def make_repro_batch(
     append_eos: bool = True,
     instruction: str = REPRO_INSTRUCTION,
     sentence_index: int | None = None,
+    sentence_indices: Sequence[int | None] | None = None,
     max_tokens: int | None = None,
 ) -> ReproBatch:
     """Create source/application inputs with loss only on the reproduced text.
 
-    ``max_tokens`` (when set) caps each application sequence length (prefix +
-    target) by truncating the tail of the target passage, which tames the long
-    windows (up to ~713 tokens) that otherwise spike activation memory."""
+    ``sentence_indices`` (when set) gives a per-example target: each element is
+    either None (reproduce the whole passage) or a 1-based sentence number, so a
+    batch can mix whole-text and single-sentence targets. It overrides the scalar
+    ``sentence_index``. ``max_tokens`` (when set) caps each application sequence
+    length (prefix + target) by truncating the tail of the target, which tames the
+    long windows (up to ~713 tokens) that otherwise spike activation memory."""
+
+    indices = list(sentence_indices) if sentence_indices is not None else [sentence_index] * len(examples)
+    if len(indices) != len(examples):
+        raise ValueError(
+            f"sentence_indices length {len(indices)} != batch size {len(examples)}"
+        )
 
     source_texts = [formatter(render_source_episode(example)) for example in examples]
     application_prefixes = [
-        formatter(render_application_episode(example, instruction, sentence_index))
-        for example in examples
+        formatter(render_application_episode(example, instruction, index))
+        for example, index in zip(examples, indices, strict=True)
     ]
     src_kwargs: dict[str, object] = {"add_special_tokens": True, "padding": True, "return_tensors": "pt"}
     if max_tokens is not None:
@@ -62,10 +72,9 @@ def make_repro_batch(
 
     sequences: list[list[int]] = []
     label_starts: list[int] = []
-    for prefix, example in zip(application_prefixes, examples, strict=True):
+    for prefix, example, index in zip(application_prefixes, examples, indices, strict=True):
         prefix_ids = tokenizer(prefix, add_special_tokens=True).input_ids
-        target_text = example.text if sentence_index is None else sentence_target(example.text, sentence_index)
-        target_ids = tokenizer(target_text, add_special_tokens=False).input_ids
+        target_ids = tokenizer(target_text(example.text, index), add_special_tokens=False).input_ids
         if not target_ids:
             raise ValueError(f"Empty target tokenization for {example.example_id!r}")
         if append_eos:

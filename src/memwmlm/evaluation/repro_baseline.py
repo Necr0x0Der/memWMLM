@@ -31,6 +31,12 @@ from memwmlm.tasks.repro_memory import (
 ReproVariant = Literal["full_context", "application_only"]
 
 
+def _index_key(index: int | None) -> str:
+    """Stable per-position key: 'whole' for the whole passage, else the sentence number."""
+
+    return "whole" if index is None else str(index)
+
+
 @dataclass(frozen=True)
 class ReproBaselineResult:
     variant: ReproVariant
@@ -39,6 +45,7 @@ class ReproBaselineResult:
     accuracy: float
     mean_token_acc: float
     mean_loglik: float
+    per_position: dict[str, dict] | None = None  # {_index_key: metrics}
 
 
 @dataclass(frozen=True)
@@ -49,6 +56,7 @@ class ReproBaselineChainResult:
     mean_ref_len: float
     exact_correct: int
     coverage: float
+    per_position: dict[str, dict] | None = None  # {_index_key: metrics}
 
 
 def render_baseline_prefix(
@@ -134,9 +142,15 @@ def evaluate_repro_baseline(
     variant: ReproVariant = "full_context",
     max_new_tokens: int = 256,
     sentence_index: int | None = None,
+    sentence_indices: Sequence[int | None] | None = None,
     progress_every: int = 200,
 ) -> ReproBaselineResult:
-    """Generate the requested text from the base Qwen context and score it."""
+    """Generate the requested text from the base Qwen context and score it.
+
+    ``sentence_indices`` (when set) gives a per-example target (None = whole
+    passage, else a 1-based sentence), so a single pass reports mixed whole-text
+    and single-sentence reproduction, matching the memory sidecar's selective mode.
+    Scoring is against each example's own target (not the whole window)."""
 
     if not examples:
         raise ValueError("Cannot evaluate an empty example sequence")
@@ -145,34 +159,49 @@ def evaluate_repro_baseline(
     exact_correct = 0
     token_accs: list[float] = []
     logliks: list[float] = []
+    pos: dict[str, list[float]] = {}  # index_key -> [cnt, exact, tokacc_sum, loglik_sum]
 
-    for index, example in enumerate(examples, start=1):
-        prefix = formatter(render_baseline_prefix(example, variant, sentence_index))
-        target = target_text(example, sentence_index)
+    indices = list(sentence_indices) if sentence_indices is not None else [sentence_index] * len(examples)
+
+    for i, example in enumerate(examples, start=1):
+        index = indices[i - 1]
+        prefix = formatter(render_baseline_prefix(example, variant, index))
+        target = target_text(example, index)
         generated = _generate(model, tokenizer, prefix, max_new_tokens)
 
-        exact_correct += int(_normalize(generated) == _normalize(target))
+        exact = int(_normalize(generated) == _normalize(target))
+        exact_correct += exact
 
         gen_ids = tokenizer(generated, add_special_tokens=False).input_ids
         ref_ids = tokenizer(target, add_special_tokens=False).input_ids
         n = min(len(gen_ids), len(ref_ids))
-        if n:
-            correct = sum(1 for a, b in zip(gen_ids[:n], ref_ids[:n]) if a == b)
-            token_accs.append(correct / n)
+        token_acc = (sum(1 for a, b in zip(gen_ids[:n], ref_ids[:n]) if a == b) / n) if n else 0.0
+        token_accs.append(token_acc)
 
-        logliks.append(_target_log_likelihood(model, tokenizer, prefix, target))
+        loglik = _target_log_likelihood(model, tokenizer, prefix, target)
+        logliks.append(loglik)
 
-        if progress_every and index % progress_every == 0:
+        key = _index_key(index)
+        acc = pos.get(key)
+        if acc is None:
+            acc = [0.0, 0.0, 0.0, 0.0]
+            pos[key] = acc
+        acc[0] += 1.0
+        acc[1] += exact
+        acc[2] += token_acc
+        acc[3] += loglik
+
+        if progress_every and i % progress_every == 0:
             run_n = len(token_accs)
             print(
                 json.dumps(
                     {
                         "event": "eval_progress",
-                        "step": index,
+                        "step": i,
                         "variant": variant,
-                        "running_exact_acc": exact_correct / index,
+                        "running_exact_acc": exact_correct / i,
                         "running_token_acc": (sum(token_accs) / run_n) if run_n else 0.0,
-                        "running_loglik": sum(logliks) / index,
+                        "running_loglik": sum(logliks) / i,
                     },
                     sort_keys=True,
                 ),
@@ -180,6 +209,16 @@ def evaluate_repro_baseline(
             )
 
     n = len(examples)
+    per_position = {
+        key: {
+            "examples": int(acc[0]),
+            "exact_correct": int(acc[1]),
+            "accuracy": acc[1] / acc[0] if acc[0] else 0.0,
+            "mean_token_acc": acc[2] / acc[0] if acc[0] else 0.0,
+            "mean_loglik": acc[3] / acc[0] if acc[0] else 0.0,
+        }
+        for key, acc in pos.items()
+    }
     return ReproBaselineResult(
         variant=variant,
         examples=n,
@@ -187,6 +226,7 @@ def evaluate_repro_baseline(
         accuracy=(exact_correct / n) if n else 0.0,
         mean_token_acc=(sum(token_accs) / n) if n else 0.0,
         mean_loglik=(sum(logliks) / n) if n else 0.0,
+        per_position=per_position,
     )
 
 
@@ -240,9 +280,14 @@ def evaluate_repro_baseline_until_error(
     variant: ReproVariant = "full_context",
     max_new_tokens: int = 256,
     sentence_index: int | None = None,
+    sentence_indices: Sequence[int | None] | None = None,
     progress_every: int = 200,
 ) -> ReproBaselineChainResult:
-    """Measure how many leading target tokens the base model reproduces exactly."""
+    """Measure how many leading target tokens the base model reproduces exactly.
+
+    ``sentence_indices`` (when set) gives a per-example target; the chain is then
+    measured against that target's tokens (not the whole window), so single-sentence
+    targets are scored correctly instead of diverging at the first later sentence."""
 
     if not examples:
         raise ValueError("Cannot evaluate an empty example sequence")
@@ -251,25 +296,42 @@ def evaluate_repro_baseline_until_error(
     chains: list[int] = []
     ref_lens: list[int] = []
     exact_correct = 0
+    pos: dict[str, list[float]] = {}  # index_key -> [cnt, chain_sum, refsum, exact, covsum]
 
-    for index, example in enumerate(examples, start=1):
-        prefix = formatter(render_baseline_prefix(example, variant, sentence_index))
-        target = target_text(example, sentence_index)
+    indices = list(sentence_indices) if sentence_indices is not None else [sentence_index] * len(examples)
+
+    for i, example in enumerate(examples, start=1):
+        index = indices[i - 1]
+        target = target_text(example, index)
+        prefix = formatter(render_baseline_prefix(example, variant, index))
         prefix_ids = tokenizer(prefix, add_special_tokens=True).input_ids
         ref_ids = tokenizer(target, add_special_tokens=False).input_ids
 
         chain = _correct_chain_length(model, prefix_ids, ref_ids, max_new_tokens)
         chains.append(chain)
         ref_lens.append(len(ref_ids))
-        exact_correct += int(chain >= len(ref_ids))
+        exact = int(chain >= len(ref_ids))
+        exact_correct += exact
 
-        if progress_every and index % progress_every == 0:
+        key = _index_key(index)
+        acc = pos.get(key)
+        if acc is None:
+            acc = [0.0, 0.0, 0.0, 0.0, 0.0]
+            pos[key] = acc
+        cov = chain / len(ref_ids) if ref_ids else 0.0
+        acc[0] += 1.0
+        acc[1] += chain
+        acc[2] += len(ref_ids)
+        acc[3] += exact
+        acc[4] += cov
+
+        if progress_every and i % progress_every == 0:
             run_n = len(chains)
             print(
                 json.dumps(
                     {
                         "event": "chain_progress",
-                        "step": index,
+                        "step": i,
                         "variant": variant,
                         "running_mean_chain_len": sum(chains) / run_n,
                         "running_mean_ref_len": sum(ref_lens) / run_n,
@@ -281,6 +343,16 @@ def evaluate_repro_baseline_until_error(
             )
 
     n = len(examples)
+    per_position = {
+        key: {
+            "examples": int(acc[0]),
+            "mean_chain_len": acc[1] / acc[0] if acc[0] else 0.0,
+            "mean_ref_len": acc[2] / acc[0] if acc[0] else 0.0,
+            "exact_correct": int(acc[3]),
+            "coverage": acc[4] / acc[0] if acc[0] else 0.0,
+        }
+        for key, acc in pos.items()
+    }
     return ReproBaselineChainResult(
         variant=variant,
         examples=n,
@@ -288,4 +360,5 @@ def evaluate_repro_baseline_until_error(
         mean_ref_len=(sum(ref_lens) / n) if n else 0.0,
         exact_correct=exact_correct,
         coverage=(sum(c / r for c, r in zip(chains, ref_lens)) / n) if n else 0.0,
+        per_position=per_position,
     )

@@ -12,6 +12,7 @@ task; it is wired here so Stage A can add it without touching the rendering.
 
 from __future__ import annotations
 
+import random
 import re
 from typing import Optional
 
@@ -57,3 +58,35 @@ def sentence_target(text: str, index: int) -> str:
     if not (1 <= index <= len(sentences)):
         raise ValueError(f"Sentence index {index} out of range (1..{len(sentences)})")
     return sentences[index - 1]
+
+
+def target_text(text: str, index: Optional[int]) -> str:
+    """The text to reproduce: the whole passage (index=None) or the index-th sentence."""
+
+    if index is None:
+        return text
+    return sentence_target(text, index)
+
+
+def choose_sentence_index(
+    text: str,
+    rng: random.Random,
+    whole_prob: float,
+    exclude_last: bool,
+) -> Optional[int]:
+    """Sample a reproduction target for the selective-repro task.
+
+    With probability ``whole_prob`` the whole passage is asked (None); otherwise a
+    random 1-based sentence is chosen. When ``exclude_last`` is set, the final
+    sentence (which may be token-truncated at the window boundary) is skipped, so
+    only *full* sentences are queried. Returns None when no sentence is selectable.
+    """
+
+    if rng.random() < whole_prob:
+        return None
+    sentences = split_sentences(text)
+    if not sentences:
+        return None
+    hi = len(sentences) - 1 if exclude_last else len(sentences)
+    hi = max(1, hi)
+    return rng.randint(1, hi)

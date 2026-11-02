@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 from pathlib import Path
 
 import torch
@@ -20,6 +21,7 @@ from memwmlm.evaluation.repro_baseline import (
     evaluate_repro_baseline,
     evaluate_repro_baseline_until_error,
 )
+from memwmlm.tasks.repro_memory import choose_sentence_index
 from memwmlm.utils.config import config_path_from_argv, load_config_defaults
 
 
@@ -36,7 +38,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--variant", choices=("full_context", "application_only"), default="full_context",
                         help="full_context = passage in normal context; application_only = passage absent.")
     parser.add_argument("--sentence-index", type=int, default=None,
-                        help="None = reproduce whole passage; n = print the n-th sentence.")
+                        help="Which sentence to reproduce (None = whole passage). Used when a sentence is asked.")
+    parser.add_argument("--sentence-mode", choices=("fixed", "random"), default="fixed",
+                        help="How the sentence target is chosen (only matters when --whole-prob < 1.0): "
+                             "fixed = the same --sentence-index every example; random = a fresh random "
+                             "sentence per example.")
+    parser.add_argument("--whole-prob", type=float, default=1.0,
+                        help="Fraction of steps asking the WHOLE passage vs one sentence. Default 1.0 = "
+                             "whole-passage (the original repro mode); <1.0 enables selective reproduction "
+                             "(a mix). Only meaningful once a sentence target is possible (a --sentence-index "
+                             "in fixed mode, or --sentence-mode random).")
+    parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
+                        help="In random mode, skip the final (possibly truncated) sentence (default: on).")
+    parser.add_argument("--include-last", dest="exclude_last", action="store_false",
+                        help="In random mode, include the final sentence in sampling.")
+    parser.add_argument("--eval-seed", type=int, default=0,
+                        help="Seed for per-example sentence sampling in random mode.")
     parser.add_argument("--max-examples", type=int, default=None)
     parser.add_argument("--output", type=Path, default=None)
     parser.set_defaults(**load_config_defaults(config_path_from_argv()))
@@ -58,6 +75,12 @@ def main() -> None:
         raise ValueError("--max-new-tokens must be positive")
     if not torch.cuda.is_available() and args.device.startswith("cuda"):
         raise RuntimeError("CUDA is unavailable; pass --device cpu only for a small debug run")
+    if args.sentence_mode == "fixed" and args.whole_prob < 1.0 and args.sentence_index is None:
+        raise ValueError(
+            "--whole-prob < 1.0 with --sentence-mode fixed requires --sentence-index N; "
+            "with index=None the fixed 'sentence' is the whole passage, so whole-prob < 1.0 "
+            "would silently collapse to always whole (no sentences ever asked)."
+        )
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token_id is None:
@@ -85,6 +108,21 @@ def main() -> None:
     if args.max_examples is not None:
         eval_examples = eval_examples[: args.max_examples]
 
+    # In random mode, sample a per-example target (reproducible via --eval-seed);
+    # in fixed mode, still sample per example so --whole-prob mixes whole vs the fixed
+    # --sentence-index. Either way sentence_indices is a list the evaluators consume.
+    eval_rng = random.Random(args.eval_seed)
+    if args.sentence_mode == "random":
+        sentence_indices: list[int | None] = [
+            choose_sentence_index(ex.text, eval_rng, args.whole_prob, args.exclude_last)
+            for ex in eval_examples
+        ]
+    else:
+        sentence_indices = [
+            (None if eval_rng.random() < args.whole_prob else args.sentence_index)
+            for ex in eval_examples
+        ]
+
     if args.mode == "chain":
         result = evaluate_repro_baseline_until_error(
             model,
@@ -93,19 +131,23 @@ def main() -> None:
             variant=args.variant,
             max_new_tokens=args.max_new_tokens,
             sentence_index=args.sentence_index,
+            sentence_indices=sentence_indices,
         )
         payload = {
             "model": args.model,
             "task": "reproduction",
             "variant": args.variant,
             "mode": "chain",
+            "sentence_mode": args.sentence_mode,
             "sentence_index": args.sentence_index,
+            "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
             "max_new_tokens": args.max_new_tokens,
             "num_examples": result.examples,
             "mean_chain_len": result.mean_chain_len,
             "mean_ref_len": result.mean_ref_len,
             "exact_correct": result.exact_correct,
             "coverage": result.coverage,
+            "per_position": result.per_position,
         }
     else:
         result = evaluate_repro_baseline(
@@ -115,19 +157,23 @@ def main() -> None:
             variant=args.variant,
             max_new_tokens=args.max_new_tokens,
             sentence_index=args.sentence_index,
+            sentence_indices=sentence_indices,
         )
         payload = {
             "model": args.model,
             "task": "reproduction",
             "variant": args.variant,
             "mode": "full",
+            "sentence_mode": args.sentence_mode,
             "sentence_index": args.sentence_index,
+            "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
             "max_new_tokens": args.max_new_tokens,
             "num_examples": result.examples,
             "exact_correct": result.exact_correct,
             "accuracy": result.accuracy,
             "mean_token_acc": result.mean_token_acc,
             "mean_loglik": result.mean_loglik,
+            "per_position": result.per_position,
         }
 
     print(json.dumps(payload, indent=2, sort_keys=True))

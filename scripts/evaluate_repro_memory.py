@@ -70,6 +70,12 @@ def main() -> None:
         raise ValueError("--max-new-tokens must be positive")
     if not torch.cuda.is_available() and args.device.startswith("cuda"):
         raise RuntimeError("CUDA is unavailable; pass --device cpu only for a small debug run")
+    if args.sentence_mode == "fixed" and args.whole_prob < 1.0 and args.sentence_index is None:
+        raise ValueError(
+            "--whole-prob < 1.0 with --sentence-mode fixed requires --sentence-index N; "
+            "with index=None the fixed 'sentence' is the whole passage, so whole-prob < 1.0 "
+            "would silently collapse to always whole (no sentences ever asked)."
+        )
 
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     backbone_name = checkpoint["model"]

@@ -106,7 +106,7 @@ def checkpoint_payload(
         "task": "reproduction",
         "sentence_index": args.sentence_index,
         "sentence_mode": args.sentence_mode,
-        "whole_prob": args.whole_prob if args.sentence_mode == "random" else None,
+        "whole_prob": args.whole_prob,
         "exclude_last": args.exclude_last if args.sentence_mode == "random" else None,
         "model": args.model,
         "memory_config": {
@@ -170,6 +170,12 @@ def main() -> None:
         raise ValueError("Adam beta values must be in [0, 1)")
     if not 0.0 <= args.whole_prob <= 1.0:
         raise ValueError("whole-prob must be in [0, 1]")
+    if args.sentence_mode == "fixed" and args.whole_prob < 1.0 and args.sentence_index is None:
+        raise ValueError(
+            "--whole-prob < 1.0 with --sentence-mode fixed requires --sentence-index N; "
+            "with index=None the fixed 'sentence' is the whole passage, so whole-prob < 1.0 "
+            "would silently collapse to always whole (no sentences ever asked)."
+        )
     if args.weight_decay < 0:
         raise ValueError("weight-decay must be non-negative")
     if args.max_grad_norm is not None and args.max_grad_norm <= 0:

@@ -33,12 +33,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mode", choices=("full", "chain"), default="chain",
                         help="full = generate whole window; chain = early-stop at first mismatch.")
     parser.add_argument("--sentence-index", type=int, default=None,
-                        help="None = reproduce whole passage; n = print the n-th sentence.")
+                        help="Which sentence to reproduce (None = whole passage). Used when a sentence is asked.")
     parser.add_argument("--sentence-mode", choices=("fixed", "random"), default="fixed",
-                        help="fixed = one --sentence-index for all; random = sample a per-example target.")
-    parser.add_argument("--whole-prob", type=float, default=0.5,
-                        help="Probability of the whole passage (vs one sentence); effective in both modes "
-                             "(fixed mixes whole vs the fixed --sentence-index). With 1.0 always whole.")
+                        help="How the sentence target is chosen (only matters when --whole-prob < 1.0): "
+                             "fixed = the same --sentence-index every example; random = a fresh random "
+                             "sentence per example.")
+    parser.add_argument("--whole-prob", type=float, default=1.0,
+                        help="Fraction of steps asking the WHOLE passage vs one sentence. Default 1.0 = "
+                             "whole-passage (the original repro mode); <1.0 enables selective reproduction "
+                             "(a mix). Only meaningful once a sentence target is possible (a --sentence-index "
+                             "in fixed mode, or --sentence-mode random).")
     parser.add_argument("--exclude-last", dest="exclude_last", action="store_true", default=True,
                         help="In random mode, skip the final (possibly truncated) sentence (default: on).")
     parser.add_argument("--include-last", dest="exclude_last", action="store_false",

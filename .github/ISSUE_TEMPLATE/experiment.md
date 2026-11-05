@@ -12,7 +12,7 @@ One falsifiable claim. State what would confirm or refute it.
 ## Strategic context
 
 Why this experiment matters for the project big idea
-(`for_agents/big-idea.en.md` / `big-idea.ru.md`). Which claim/rung it tests, and
+(`for_agents/big-idea.md`). Which claim/rung it tests, and
 what later stage depends on it.
 
 ## Experiment

@@ -34,7 +34,7 @@ Use this at the end of an experiment or before handing work to another agent.
 
 ## What the next agent should read
 
-- `for_agents/big-idea.en.md` (or `big-idea.ru.md`)
+- `for_agents/big-idea.md`
 - `docs/decisions.md`
 - the experiment issue
 - relevant `runs/.../RESULTS.md`

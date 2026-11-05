@@ -13,7 +13,7 @@ goal is to leave a durable record that other agents can read.
 From the repository root:
 
 1. `for_agents/README.md`
-2. `for_agents/big-idea.en.md` or `for_agents/big-idea.ru.md`
+2. `for_agents/big-idea.md`
 3. `docs/decisions.md`
 4. the relevant GitHub issue
 

@@ -5,7 +5,7 @@ in this repository. Read it before starting an experiment.
 
 ## Start here
 
-- **Project big idea:** [`big-idea.en.md`](big-idea.en.md) / [`big-idea.ru.md`](big-idea.ru.md)
+- **Project big idea:** [`big-idea.md`](big-idea.md)
 - **Repo conventions:** [`repo-conventions.md`](repo-conventions.md)
 - **Handoff template:** [`handoff.md`](handoff.md)
 - **GitHub issue template:** [`.github/ISSUE_TEMPLATE/experiment.md`](../.github/ISSUE_TEMPLATE/experiment.md)

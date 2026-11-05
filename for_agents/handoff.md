@@ -15,6 +15,8 @@ Use this at the end of an experiment or before handing work to another agent.
 - Experiment:
 - Controls:
 - Metrics:
+- Compatibility / old behavior preserved:
+- Code ownership / approvals:
 
 ## What remains open
 
@@ -22,6 +24,13 @@ Use this at the end of an experiment or before handing work to another agent.
 - Confounders:
 - Missing controls:
 - Next experiment:
+
+## What later stages may rely on
+
+- Established:
+- Unproven:
+- Reusable artifacts:
+- Decision entry / issue link:
 
 ## What the next agent should read
 

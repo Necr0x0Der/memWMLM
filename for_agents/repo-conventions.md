@@ -42,16 +42,39 @@ Do not store per-example runtime memory state as learned global knowledge.
 - Frozen backbone is an experimental constraint; report adaptation variants
   separately.
 
-## 5. Git and secrets
+## 5. Git and PR workflow
 
+- Work on a dedicated branch, push the branch, and open a pull request.
+- **Do not push directly to `main`** unless the maintainer explicitly authorizes it.
 - Commit messages should reference the issue or experiment ID.
-- PR descriptions should link the issue.
+- PR descriptions should link the issue and state scope, compatibility, and
+  ownership approvals.
+- Do not force-push shared branches.
 - Do not commit tokens, API keys, or credentials.
 - Do not print tokens in logs or responses.
 - Prefer environment variables or credential helpers over tokens embedded in
   remote URLs.
 
-## 6. Handoff
+## 6. Compatibility and ownership
+
+- Do not break existing functionality unless explicitly scoped and documented.
+- Preserve old configs, checkpoints, CLI behavior, prompt versions, and historical
+  results unless a deliberate change is declared and tested.
+- Add tests or migration notes for behavior changes.
+- If a change touches another author's/agent's code, ask that owner for approval
+  and record the approval in the issue or PR.
+- Keep edits minimal; do not rewrite unrelated code.
+
+## 7. Results for later stages
+
+- Record exact metrics, controls, artifact paths, checkpoint/step, seed, and
+  caveats in the issue.
+- Add a dated entry to `docs/decisions.md` and link the issue.
+- State what later stages may rely on and what remains unproven.
+- Keep historical measurements intact; do not silently reinterpret or rename
+  them.
+
+## 8. Handoff
 
 At the end of an experiment, leave a short handoff note in the issue or in
 `for_agents/handoff.md`:

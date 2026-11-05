@@ -9,6 +9,12 @@ labels: experiment
 
 One falsifiable claim. State what would confirm or refute it.
 
+## Strategic context
+
+Why this experiment matters for the project big idea
+(`for_agents/big-idea.en.md` / `big-idea.ru.md`). Which claim/rung it tests, and
+what later stage depends on it.
+
 ## Experiment
 
 - Task / protocol:
@@ -45,9 +51,22 @@ What signal is expected? What would be a negative or partial result?
 - `datasets/...`
 - `RESULTS.md`
 
+## Compatibility and ownership
+
+- Existing functionality preserved:
+- Old configs/checkpoints/CLI behavior preserved:
+- Behavior changes declared:
+- Code owner(s) touched:
+- Owner approval:
+
 ## Result
 
 Metrics, train/test, controls, and qualitative failures.
+
+## Result for later stages
+
+What later work may rely on, what artifacts are reusable, and what remains
+unproven.
 
 ## Caveats and open questions
 

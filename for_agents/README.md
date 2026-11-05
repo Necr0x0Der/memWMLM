@@ -33,6 +33,31 @@ experiments change the picture.
    files/checkpoints matter.
 7. **Close the issue** only after results and caveats are recorded.
 
+## Git workflow
+
+- Work on a dedicated branch.
+- Push the branch to `origin` and open a pull request.
+- **Do not push directly to `main`** unless the maintainer explicitly authorizes it.
+- The PR description must link the issue and state the scope of the change.
+- Do not force-push shared branches.
+
+## Change safety and ownership
+
+- Do not break existing functionality unless the issue/PR explicitly says so and
+  documents the migration.
+- Preserve old configs, checkpoints, CLI behavior, and historical results unless a
+  deliberate change is declared and tested.
+- If a change touches another author's/agent's code, ask that owner for approval
+  and record the approval in the issue or PR.
+- Keep changes minimal; do not rewrite unrelated code.
+
+## Research results for later stages
+
+- Issue comments must contain exact metrics, controls, artifact paths, and caveats.
+- Add a dated entry to `docs/decisions.md` and link the issue.
+- State explicitly what later stages may rely on and what remains unproven.
+- Do not silently reinterpret or rename historical results.
+
 ## Repo conventions
 
 - Keep **data**, **memory architecture**, and **experiment protocol** separate.

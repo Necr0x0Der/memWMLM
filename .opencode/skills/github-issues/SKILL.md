@@ -26,17 +26,24 @@ issue records unless the PR is the experiment record.
 2. Create an issue if none exists, using `.github/ISSUE_TEMPLATE/experiment.md`.
 3. Include:
    - claim;
+   - strategic context: why it matters for the project big idea;
    - protocol and model;
    - data/config and seed;
    - controls and baselines;
    - expected result / falsification;
    - artifact paths;
+   - compatibility and ownership approvals;
    - result and caveats.
 4. Save artifacts under `runs/`, `configs/`, `datasets/`, or task-specific paths.
 5. Put results and caveats in issue comments, not only in commit messages.
 6. Link the issue from `docs/decisions.md` or the relevant README.
 7. Write a handoff note for the next agent.
 8. Close the issue only after result and caveats are recorded.
+9. Work on a branch and open a PR; do not push directly to `main` unless the
+   maintainer explicitly authorizes it.
+10. Do not break existing functionality unless the change is explicitly scoped,
+    documented, and tested.
+11. If you touch another author's/agent's code, ask that owner and record approval.
 
 ## GitHub API examples
 

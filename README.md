@@ -2,6 +2,8 @@
 
 Experimental infrastructure for **writable memory around a frozen language model**.
 
+> Agent onboarding: [`for_agents/README.md`](for_agents/README.md). Project context: [`for_agents/big-idea.en.md`](for_agents/big-idea.en.md) / [`for_agents/big-idea.ru.md`](for_agents/big-idea.ru.md). Issue workflow skill: [`.opencode/skills/github-issues/SKILL.md`](.opencode/skills/github-issues/SKILL.md).
+
 ## Two-prompt exploratory inference
 
 From this repository on a machine with the project dependencies and a trained **pooled-memory** checkpoint:

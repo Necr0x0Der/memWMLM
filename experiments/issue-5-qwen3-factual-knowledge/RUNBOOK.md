@@ -5,15 +5,27 @@ models. The final comparison uses the native BF16 weights for both sizes, withou
 quantization or CPU offload. The earlier local 1.7B FP16 run is only an
 infrastructure smoke test.
 
-## 1. Prepare the environment
+## 1. Install uv and prepare the environment
 
-The machine needs Linux, Git, `uv`, a BF16-capable NVIDIA GPU, a working NVIDIA
-driver, and enough VRAM to hold Qwen3-4B plus inference activations. At least
-12 GB VRAM is recommended; 16 GB or more leaves safer headroom.
+The machine needs Linux, Git, `curl`, a BF16-capable NVIDIA GPU, a working NVIDIA
+driver, and enough VRAM to hold Qwen3-4B plus inference activations. A system
+Python installation is not required. At least 12 GB VRAM is recommended; 16 GB
+or more leaves safer headroom.
+
+Install the pinned `uv` release with Astral's official standalone installer:
 
 ```bash
+curl -LsSf https://astral.sh/uv/0.13.7/install.sh | sh
+```
+
+Start a new shell so the installed executable is on `PATH`, then install Python
+and create the repository-local `.venv`:
+
+```bash
+uv --version
+uv python install 3.13
 nvidia-smi
-uv sync --frozen --extra dev
+uv sync --extra dev --python 3.13
 ```
 
 Verify the isolated environment and CUDA before downloading models:

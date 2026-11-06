@@ -14,6 +14,8 @@ This protocol was written before inspecting any test results.
 Initial local tooling:
 
 - `RUNBOOK.md` gives the exact cross-machine execution sequence;
+- `RESULTS.md` reports the completed 1.7B versus 4B TriviaQA comparison;
+- `comparison.json` contains the same aggregate and paired metrics for tooling;
 - `triviaqa.py` loads TriviaQA v1.0 and implements official-style EM/F1;
 - `score_predictions.py` scores a JSON object keyed by `QuestionId`.
 - `run_qwen.py` performs resumable deterministic Qwen inference to JSONL;

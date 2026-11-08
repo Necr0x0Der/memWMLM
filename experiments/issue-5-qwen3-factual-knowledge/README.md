@@ -19,6 +19,8 @@ Initial local tooling:
 - `triviaqa.py` loads TriviaQA v1.0 and implements official-style EM/F1;
 - `score_predictions.py` scores a JSON object keyed by `QuestionId`.
 - `run_qwen.py` performs resumable deterministic Qwen inference to JSONL;
+- `mmlu.py` loads official MMLU CSVs and reports per-subject/domain accuracy;
+- `run_mmlu.py` performs resumable five-shot candidate-likelihood evaluation;
 - `triviaqa-manifest.json` records the official archive and `dev` split hashes.
 - `model-revisions.json` pins the model revisions used by this experiment.
 
@@ -110,4 +112,9 @@ reasoning or broad-domain control are evaluated under a matched protocol.
 Record any prospective protocol changes here, with a date and reason, before
 inspecting the affected aggregate results.
 
-- None.
+- 2026-11-08: After completing TriviaQA, add the full MMLU test split as a
+  broad-domain control. Use the official five-shot prompt, identical chat
+  formatting with thinking disabled for both models, and summed conditional
+  log likelihood over the answer letters A/B/C/D. Report overall, per-domain,
+  and per-subject accuracy. This amendment was recorded before inspecting any
+  MMLU results.

@@ -1,4 +1,4 @@
-# TriviaQA Qwen3 experiment runbook
+# Qwen3 factual-knowledge experiment runbook
 
 Run commands from the repository root. Use the same checked-out commit for both
 models. The final comparison uses the native BF16 weights for both sizes, without
@@ -139,3 +139,74 @@ Preserve these files for each run:
 Do not inspect aggregate quality between the two smoke tests. Smoke runs are for
 runtime and formatting validation only. Do not change prompts, decoding, example
 order, precision, or quantization between the two full runs.
+
+## 7. Download and verify MMLU
+
+MMLU is a second, broad-domain control. Download the immutable `cais/mmlu`
+archive revision and verify its published SHA-256 before extraction:
+
+```bash
+mkdir -p artifacts/mmlu
+curl -fL --retry 3 --continue-at - \
+  https://huggingface.co/datasets/cais/mmlu/resolve/c30699e8356da336a370243923dbaf21066bb9fe/data.tar \
+  -o artifacts/mmlu/data.tar
+echo "bec563ba4bac1d6aaf04141cd7d1605d7a5ca833e38f994051e818489592989b  artifacts/mmlu/data.tar" | sha256sum -c -
+tar -xf artifacts/mmlu/data.tar -C artifacts/mmlu
+```
+
+Verify that all 57 subjects and 14,042 test questions are present:
+
+```bash
+.venv/bin/python -c "import sys; from pathlib import Path; sys.path.insert(0, 'experiments/issue-5-qwen3-factual-knowledge'); from mmlu import load_mmlu; x=load_mmlu(Path('artifacts/mmlu/data')); assert len(x)==14042; assert len({e.subject for e in x})==57; print(len(x), len({e.subject for e in x}))"
+.venv/bin/pytest -q tests/test_mmlu.py
+```
+
+## 8. Run MMLU on Qwen3-1.7B, then Qwen3-4B
+
+The smoke test evaluates one test question from every subject (57 total). It
+uses each subject's five official dev examples as demonstrations. Candidate
+likelihood scoring selects A/B/C/D without generating or parsing free text.
+
+```bash
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu/data \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-qwen3-1.7b-bf16-smoke.jsonl \
+  --max-examples-per-subject 1 --batch-size 1 \
+  --device cuda --dtype bfloat16
+
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu/data \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-qwen3-1.7b-bf16-test.jsonl \
+  --batch-size 1 --device cuda --dtype bfloat16
+```
+
+After both 1.7B commands succeed, run the same smoke/full sequence for 4B:
+
+```bash
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu/data \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-qwen3-4b-bf16-smoke.jsonl \
+  --max-examples-per-subject 1 --batch-size 1 \
+  --device cuda --dtype bfloat16
+
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu/data \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-qwen3-4b-bf16-test.jsonl \
+  --batch-size 1 --device cuda --dtype bfloat16
+```
+
+Each run writes predictions, immutable metadata, and an adjacent
+`.summary.json` containing overall, per-domain, and per-subject accuracy. Runs
+resume safely when the identical command and output path are reused. Preserve
+all three files, plus terminal timing and peak-VRAM output. Do not inspect the
+1.7B full accuracy before starting the matched 4B run, and do not alter the
+prompt, five-shot examples, scoring, precision, or batch semantics between
+models.

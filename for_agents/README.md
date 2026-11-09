@@ -14,8 +14,9 @@ in this repository. Read it before starting an experiment.
 The big idea is informal context, not a settled claim. It should be updated when
 experiments change the picture.
 
-This README is the short entry point; [`repo-conventions.md`](repo-conventions.md)
-is the authoritative detailed policy if the two documents differ.
+This README defines the agent research workflow;
+[`repo-conventions.md`](repo-conventions.md) defines repository-wide conventions.
+Both apply. Resolve any conflict through maintainer or PR review.
 
 ## Core workflow
 
@@ -57,6 +58,8 @@ is the authoritative detailed policy if the two documents differ.
 - If a change touches another author's/agent's code, ask that owner for approval
   and record the approval in the issue or PR. If ownership is unclear or the owner
   is unavailable, request maintainer or PR review as the fallback.
+- This README is a shared workflow document; changes to it require maintainer or
+  PR review rather than approval from its original author.
 - Keep changes minimal; do not rewrite unrelated code.
 
 ## Research results for later stages
@@ -94,8 +97,8 @@ GitHub issues are for the **experiment record**; repository files are for the
 **reproducible artifacts**. An issue should point to the files and checkpoints,
 and a file/result should point back to the issue number.
 
-If GitHub is unavailable, keep the same record locally and import or link it from
-an issue before merging the PR.
+If GitHub is temporarily unavailable, keep the same record locally. Import or
+link it from an issue once GitHub is available and before merging the PR.
 
 Useful labels:
 

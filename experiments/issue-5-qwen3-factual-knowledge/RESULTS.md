@@ -163,8 +163,74 @@ Qwen3-4B was also position-skewed, though less extremely.
 Thus the measured size effect is real for this exact scoring protocol, but its
 magnitude cannot be interpreted as a pure knowledge-capacity difference. It
 also reflects model-dependent calibration or answer-position bias under direct
-letter likelihood. A follow-up with option-order permutation or calibrated
-multiple-choice scoring would be needed to separate those effects.
+letter likelihood. The single-shuffle sensitivity control below tests whether
+the size gap survives another option order; multiple permutations or calibrated
+multiple-choice scoring would be needed to separate those effects more fully.
+
+### MMLU shuffled-choice sensitivity control
+
+To test sensitivity to the original option order without a fourfold evaluation,
+the four test choices were deterministically shuffled once per question using
+seed `20261109`. The correct letter was remapped to the same answer content;
+five-shot demonstrations remained unchanged. Both models used the identical
+generated dataset and permutation manifest.
+
+| Model | Original accuracy | Shuffled accuracy | Change |
+|---|---:|---:|---:|
+| Qwen3-1.7B | 26.21% | 28.42% | +2.21 pp |
+| Qwen3-4B | 59.91% | 59.08% | −0.83 pp |
+| 4B − 1.7B | +33.69 pp | +30.66 pp | −3.03 pp |
+
+The shuffled 4B − 1.7B difference was **+30.66 percentage points**, with a
+paired bootstrap 95% CI of **[+29.73, +31.58]** from 10,000 resamples with seed
+`20261109`.
+
+| Shuffled paired outcome | Questions |
+|---|---:|
+| Both correct | 3,275 |
+| Only 4B correct | 5,021 |
+| Only 1.7B correct | 716 |
+| Both wrong | 5,030 |
+
+The shuffled gap remained positive in every broad domain:
+
+| Domain | Examples | Qwen3-1.7B | Qwen3-4B | 4B − 1.7B |
+|---|---:|---:|---:|---:|
+| STEM | 3,018 | 26.84% | 56.83% | +29.99 pp |
+| Humanities | 4,705 | 25.80% | 51.14% | +25.33 pp |
+| Social sciences | 3,077 | 30.55% | 68.38% | +37.83 pp |
+| Other (business, health, misc.) | 3,242 | 31.68% | 63.88% | +32.20 pp |
+
+The shuffle balanced gold answer positions (`A`/`B`/`C`/`D` counts were
+3,538/3,470/3,513/3,521), but it did not remove model letter preference.
+Qwen3-1.7B still selected `A` on 92.82% of questions; Qwen3-4B selected `A` on
+42.86%. Comparing selected answer content across the original and shuffled
+runs, 1.7B chose the same content on only 27.24% of questions, versus 61.91%
+for 4B. The 1.7B score is therefore highly order-sensitive at the item level,
+even though its aggregate accuracy changed by only 2.21 points.
+
+Seventy questions were conservatively flagged as containing possible explicit
+position references such as “Both A and B”; shuffling can change their meaning.
+Excluding them left the conclusion unchanged: shuffled accuracy was 28.48% for
+1.7B and 59.16% for 4B, a +30.68-point gap.
+
+Shuffled-run provenance:
+
+- preparation algorithm:
+  `sha256_sort_by_seed_example_id_and_original_index_v1`;
+- permutation manifest SHA-256:
+  `cccd1f4c8de19f34aa542ead9f100c0197547775b92354d722996dd7fc94e848`;
+- repository commit used for both runs:
+  `0ea19d4fff3286eee51115acbf32dc7d4514e170`;
+- 1.7B shuffled JSONL SHA-256:
+  `8b259a0c47bf31dcfc2fa3a350d9888ac89056b479e6f04abe94bf4c971366df`;
+- 4B shuffled JSONL SHA-256:
+  `7e9c8c590f13fe38d6c34e23a31bf7701ac8decd96d9cca477cc7d3fa1c5d3ae`.
+
+This one-shuffle experiment is a sensitivity check, not a mathematical
+debiasing procedure. It shows that the large size gap is not specific to the
+original option order, while confirming that direct letter likelihood—most
+severely for 1.7B—is not a clean measure of answer-content knowledge.
 
 ### MMLU qualitative error set
 
@@ -221,11 +287,15 @@ The evidence still has important limits:
 - TriviaQA does not provide semantic domain labels, so its gain cannot be
   decomposed by domain;
 - benchmark contamination cannot be ruled out for either dataset;
-- no 8B model, RAG condition, retrieval control, or option-order permutation was
-  evaluated;
+- no 8B model, RAG condition, retrieval control, multi-permutation average, or
+  calibrated multiple-choice evaluation was performed;
 - the experiment cannot isolate stored factual knowledge from better reasoning,
   instruction following, or retrieval within model weights.
 
 The robust conclusion is therefore that 4B performs better than 1.7B on both
-evaluated benchmarks. The data do not yet justify attributing the full MMLU
-delta to knowledge capacity or concluding that RAG would close the gap.
+evaluated benchmarks, and its MMLU advantage persists under one deterministic
+random option order. Because 4B improved substantially in every MMLU domain,
+the evidence favors a broad scale effect over the strong interpretation that
+the larger model differs only through a few factual modules. The data still do
+not justify attributing the full MMLU delta to knowledge capacity or concluding
+that RAG would close the gap.

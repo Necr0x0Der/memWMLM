@@ -152,6 +152,7 @@ configs/
 docs/
   architecture.md  Stable conceptual and interface contracts
   research-plan.md Milestones, claims, and stopping criteria
+  directions.md    Living map of major research directions
   decisions.md     Short append-only architecture decisions
 
 scripts/        Thin CLI entry points; no model logic

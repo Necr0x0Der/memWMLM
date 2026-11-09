@@ -46,6 +46,9 @@ def dataset_manifest(data_dir: Path) -> dict[str, str]:
     manifest = {}
     for path in sorted((*data_dir.glob("dev/*_dev.csv"), *data_dir.glob("test/*_test.csv"))):
         manifest[str(path.relative_to(data_dir))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    transform_manifest = data_dir / "permutation-manifest.json"
+    if transform_manifest.exists():
+        manifest[transform_manifest.name] = hashlib.sha256(transform_manifest.read_bytes()).hexdigest()
     if not manifest:
         raise ValueError(f"No MMLU dev/test files found under {data_dir}")
     return manifest

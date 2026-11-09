@@ -17,6 +17,7 @@ from mmlu import (  # noqa: E402
     summarize_records,
     write_summary,
 )
+from prepare_mmlu_shuffled import permutation_for, prepare_dataset  # noqa: E402
 
 
 def write_rows(path: Path, rows: list[list[str]]) -> None:
@@ -69,3 +70,27 @@ def test_write_summary_preserves_unicode_line_separator_inside_json(tmp_path: Pa
 
     assert summary["count"] == 1
     assert summary["accuracy"] == 1.0
+
+
+def test_prepare_shuffled_dataset_is_deterministic_and_remaps_answer(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    row = ["Select beta", "alpha", "beta", "gamma", "delta", "B"]
+    for index in range(57):
+        subject = "abstract_algebra" if index == 0 else f"subject_{index}"
+        write_rows(source / "dev" / f"{subject}_dev.csv", [row])
+        write_rows(source / "test" / f"{subject}_test.csv", [row])
+
+    output = tmp_path / "shifted"
+    manifest_path = prepare_dataset(source, output, seed=20261109)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    transformed = next(csv.reader((output / "test" / "abstract_algebra_test.csv").open()))
+    order = permutation_for(20261109, "abstract_algebra:test:0")
+
+    assert (output / "dev" / "abstract_algebra_dev.csv").read_bytes() == (
+        source / "dev" / "abstract_algebra_dev.csv"
+    ).read_bytes()
+    assert transformed[1:5] == [row[1 + index] for index in order]
+    assert transformed[5] == "ABCD"[order.index(1)]
+    assert transformed[1 + "ABCD".index(transformed[5])] == "beta"
+    assert manifest["example_count"] == 57
+    assert manifest["examples"][0]["new_to_original_choice_indices"] == list(order)

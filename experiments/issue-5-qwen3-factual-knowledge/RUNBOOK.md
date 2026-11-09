@@ -210,3 +210,76 @@ all three files, plus terminal timing and peak-VRAM output. Do not inspect the
 1.7B full accuracy before starting the matched 4B run, and do not alter the
 prompt, five-shot examples, scoring, precision, or batch semantics between
 models.
+
+## 9. Prepare one deterministic shuffled-choice MMLU control
+
+This sensitivity control uses the same MMLU questions and five-shot
+demonstrations. It changes only the order of the four choices in each test
+question and remaps the correct A/B/C/D label. The seed and per-example mapping
+are saved in `permutation-manifest.json`. The generated dataset remains under
+`artifacts/` and must not be committed.
+
+Do not create the output directory beforehand. Run:
+
+```bash
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/prepare_mmlu_shuffled.py \
+  --source-dir artifacts/mmlu/data \
+  --output-dir artifacts/mmlu-shuffled-seed-20261109/data \
+  --seed 20261109
+```
+
+Verify that all questions remain present and that the manifest records the
+same seed:
+
+```bash
+.venv/bin/python -c "import json,sys; from pathlib import Path; sys.path.insert(0, 'experiments/issue-5-qwen3-factual-knowledge'); from mmlu import load_mmlu; p=Path('artifacts/mmlu-shuffled-seed-20261109/data'); x=load_mmlu(p); m=json.loads((p/'permutation-manifest.json').read_text()); assert len(x)==14042 and m['example_count']==14042 and m['seed']==20261109; print(len(x), m['identity_permutation_count'])"
+.venv/bin/pytest -q tests/test_mmlu.py
+```
+
+The identity permutation is one of the 24 valid random orders, so a small
+number of questions will retain their original order. Do not regenerate the
+dataset with a different seed after inspecting results.
+
+## 10. Run the shuffled-choice control on both models
+
+First run the matched 57-question smoke tests:
+
+```bash
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu-shuffled-seed-20261109/data \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-shuffled-seed-20261109-qwen3-1.7b-bf16-smoke.jsonl \
+  --max-examples-per-subject 1 --batch-size 1 \
+  --device cuda --dtype bfloat16
+
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu-shuffled-seed-20261109/data \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-shuffled-seed-20261109-qwen3-4b-bf16-smoke.jsonl \
+  --max-examples-per-subject 1 --batch-size 1 \
+  --device cuda --dtype bfloat16
+```
+
+After both smoke tests pass, run the two complete 14,042-question evaluations:
+
+```bash
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu-shuffled-seed-20261109/data \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-shuffled-seed-20261109-qwen3-1.7b-bf16-test.jsonl \
+  --batch-size 1 --device cuda --dtype bfloat16
+
+.venv/bin/python experiments/issue-5-qwen3-factual-knowledge/run_mmlu.py \
+  --data-dir artifacts/mmlu-shuffled-seed-20261109/data \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --output runs/issue-5-qwen3-factual-knowledge/mmlu-shuffled-seed-20261109-qwen3-4b-bf16-test.jsonl \
+  --batch-size 1 --device cuda --dtype bfloat16
+```
+
+Use the same generated data directory for both models. The runner includes the
+permutation-manifest hash and every generated CSV hash in each run's metadata.
+As before, rerunning an identical command resumes an interrupted output safely.

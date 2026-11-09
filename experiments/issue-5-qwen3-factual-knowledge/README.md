@@ -21,6 +21,7 @@ Initial local tooling:
 - `run_qwen.py` performs resumable deterministic Qwen inference to JSONL;
 - `mmlu.py` loads official MMLU CSVs and reports per-subject/domain accuracy;
 - `run_mmlu.py` performs resumable five-shot candidate-likelihood evaluation;
+- `prepare_mmlu_shuffled.py` creates the deterministic shuffled-choice control;
 - `triviaqa-manifest.json` records the official archive and `dev` split hashes.
 - `model-revisions.json` pins the model revisions used by this experiment.
 
@@ -118,3 +119,8 @@ inspecting the affected aggregate results.
   log likelihood over the answer letters A/B/C/D. Report overall, per-domain,
   and per-subject accuracy. This amendment was recorded before inspecting any
   MMLU results.
+- 2026-11-09: After observing strong answer-letter bias in the first MMLU run,
+  add one sensitivity run with test choices deterministically shuffled using
+  seed `20261109`. Keep five-shot demonstrations unchanged, remap gold letters,
+  use the identical permutation for both models, and preserve the mapping and
+  hashes. This amendment was recorded before inspecting shuffled-run results.

@@ -1,10 +1,10 @@
-# Qwen3 size comparison on TriviaQA
+# Qwen3 size comparison on factual-knowledge datasets
 
-Date: 2026-11-07
+Dates: 2026-11-07 to 2026-11-09
 
 Issue: https://github.com/Necr0x0Der/memWMLM/issues/5
 
-## Result
+## TriviaQA result
 
 On the complete TriviaQA v1.0 unfiltered `dev` split, Qwen3-4B substantially
 outperformed Qwen3-1.7B under the matched no-context, no-thinking protocol.
@@ -96,23 +96,136 @@ These examples show both additional factual recall in 4B and non-monotonic
 errors. They also expose alias-metric behavior: “Lung cancer” receives partial
 F1 rather than exact match against the broad `cancer` aliases.
 
+## MMLU result
+
+On all 14,042 questions from the MMLU `test` split, Qwen3-4B scored 59.91%
+accuracy versus 26.21% for Qwen3-1.7B under the matched five-shot,
+no-thinking, candidate-likelihood protocol.
+
+| Dataset | Examples | Model | Accuracy | Correct |
+|---|---:|---|---:|---:|
+| MMLU `test` | 14,042 | Qwen3-1.7B | 26.21% | 3,681 |
+| MMLU `test` | 14,042 | Qwen3-4B | 59.91% | 8,412 |
+
+The paired 4B − 1.7B difference was **+33.69 percentage points**, with a
+paired bootstrap 95% CI of **[+32.74, +34.63]**. The interval used 10,000
+paired resamples with seed `20261109`.
+
+### MMLU paired outcomes
+
+| Outcome | Questions |
+|---|---:|
+| Both correct | 2,982 |
+| Only 4B correct | 5,430 |
+| Only 1.7B correct | 699 |
+| Both wrong | 4,931 |
+
+The larger model gained 4,731 net correct answers. Its advantage was positive
+in every broad MMLU domain, but varied substantially by domain.
+
+### MMLU domain accuracy
+
+These are micro-averages over all questions assigned to each standard broad
+domain.
+
+| Domain | Examples | Qwen3-1.7B | Qwen3-4B | 4B − 1.7B |
+|---|---:|---:|---:|---:|
+| STEM | 3,018 | 22.90% | 58.65% | +35.75 pp |
+| Humanities | 4,705 | 25.25% | 51.88% | +26.63 pp |
+| Social sciences | 3,077 | 27.43% | 69.78% | +42.35 pp |
+| Other (business, health, misc.) | 3,242 | 29.55% | 63.36% | +33.81 pp |
+
+The largest broad-domain gain was in social sciences and the smallest was in
+humanities. At subject level, all 57 subjects are recorded in the adjacent
+`.summary.json` files. The largest and smallest observed gains were:
+
+| Subject | Examples | Qwen3-1.7B | Qwen3-4B | Difference |
+|---|---:|---:|---:|---:|
+| High-school biology | 310 | 22.58% | 84.84% | +62.26 pp |
+| High-school psychology | 545 | 25.32% | 83.49% | +58.17 pp |
+| High-school computer science | 100 | 25.00% | 83.00% | +58.00 pp |
+| High-school mathematics | 270 | 21.11% | 29.26% | +8.15 pp |
+| Global facts | 100 | 18.00% | 27.00% | +9.00 pp |
+| Professional law | 1,534 | 24.64% | 34.88% | +10.23 pp |
+
+### MMLU answer-position diagnostic
+
+The 1.7B result has a major calibration caveat. Gold answer letters were
+approximately balanced, but Qwen3-1.7B selected `A` on 93.04% of questions.
+Qwen3-4B was also position-skewed, though less extremely.
+
+| Source | A | B | C | D |
+|---|---:|---:|---:|---:|
+| Gold answers | 22.95% | 24.65% | 25.51% | 26.89% |
+| Qwen3-1.7B predictions | 93.04% | 0.17% | 0.58% | 6.21% |
+| Qwen3-4B predictions | 40.24% | 10.06% | 17.70% | 32.00% |
+
+Thus the measured size effect is real for this exact scoring protocol, but its
+magnitude cannot be interpreted as a pure knowledge-capacity difference. It
+also reflects model-dependent calibration or answer-position bias under direct
+letter likelihood. A follow-up with option-order permutation or calibrated
+multiple-choice scoring would be needed to separate those effects.
+
+### MMLU qualitative error set
+
+The four 4B-gain examples are the first such item in dataset order within each
+broad domain. The reversal is the first item where only 1.7B was correct. This
+deterministic rule avoids selecting examples for favorability.
+
+| Category | ID | Question | Correct option | 1.7B | 4B |
+|---|---|---|---|---|---|
+| 4B gain / STEM | `abstract_algebra:test:2` | Find all zeros of `x^5 + 3x^3 + x^2 + 2x` in `Z_5`. | D: 0,4 | A: 0 | D: 0,4 |
+| 4B gain / humanities | `formal_logic:test:0` | Identify the conclusion of Freud's argument about consciousness and unconscious complexes. | D: It is difficult to convince people of the unconscious… | A: It is hard not to verify… | D: It is difficult to convince people of the unconscious… |
+| 4B gain / social sciences | `econometrics:test:1` | Main difference between Dickey–Fuller and Phillips–Perron unit-root tests? | C: PP corrects for autocorrelated residuals | A: single-equation vs systems approach | C: PP corrects for autocorrelated residuals |
+| 4B gain / other | `anatomy:test:0` | Effect of facial-nerve compression at the stylomastoid foramen? | A: paralysis of facial muscles | D: paralysis plus taste/lacrimation/salivation loss | A: paralysis of facial muscles |
+| 1.7B-only reversal | `abstract_algebra:test:5` | Two statements about counts of group elements of order 15. | A: True, True | A: True, True | D: False, True |
+
+### MMLU protocol and provenance
+
+- Dataset: `cais/mmlu`, revision
+  `c30699e8356da336a370243923dbaf21066bb9fe`, complete `test` split.
+- Original archive SHA-256:
+  `bec563ba4bac1d6aaf04141cd7d1605d7a5ca833e38f994051e818489592989b`;
+  per-file hashes are preserved in each run's metadata.
+- Models and tokenizers used the same immutable revisions as TriviaQA.
+- Repository commit used for both runs:
+  `8df6870067025c8bb0a2e9a00f35c678ef9428f1`.
+- Prompt version: `mmlu_official_5shot_chat_v1`; five fixed demonstrations
+  from the official `dev` split for each subject.
+- Qwen chat template with `enable_thinking=False`.
+- Scoring: summed conditional log likelihood of the candidate answer letters
+  `A`, `B`, `C`, and `D`; highest-scoring letter selected.
+- Seed `0`; no stochastic sampling; batch size 1.
+- Native BF16 weights, no quantization and no CPU offload.
+- PyTorch `2.15.0+cu132`; Transformers `5.22.2`.
+
+Output hashes:
+
+- 1.7B JSONL:
+  `97e79b28dadaaa44235539ad7bf2f6185aa6aa50bced99e923205d8c270fe76e`;
+- 4B JSONL:
+  `05ef0088853ad6257edd87e929334a12bd61b4af870cbcdfec17c304db69cb08`.
+
 ## What this establishes
 
-For TriviaQA open-domain factual recall, 4B is clearly stronger than 1.7B under
-the matched protocol. The result is consistent with additional model capacity
-carrying useful factual knowledge and/or improving short-answer compliance.
+Across both TriviaQA and MMLU, Qwen3-4B clearly outperformed Qwen3-1.7B under
+matched prompts, precision, and model-family conditions. The TriviaQA gain was
++13.67 pp exact match; the MMLU gain was +33.69 pp accuracy and was positive in
+all four broad domains. This is consistent with greater capacity improving
+factual recall and broad task performance.
 
-It does **not** establish the issue's broader domain-specific claim:
+The evidence still has important limits:
 
-- only one dataset was evaluated;
-- TriviaQA labels the whole split as `unfiltered-web` and provides no semantic
-  domain labels, so finer per-domain accuracy cannot be reported faithfully;
-- no MMLU run is present, so there is no multiple-choice or reasoning control;
-- no 8B model was evaluated;
-- benchmark contamination cannot be ruled out;
-- the experiment does not distinguish factual knowledge from better retrieval
-  within weights or better instruction following.
+- MMLU mixes factual knowledge with reasoning and exhibits strong
+  model-dependent answer-position bias in this candidate-letter protocol;
+- TriviaQA does not provide semantic domain labels, so its gain cannot be
+  decomposed by domain;
+- benchmark contamination cannot be ruled out for either dataset;
+- no 8B model, RAG condition, retrieval control, or option-order permutation was
+  evaluated;
+- the experiment cannot isolate stored factual knowledge from better reasoning,
+  instruction following, or retrieval within model weights.
 
-Accordingly, this is a strong single-dataset size effect, not yet evidence that
-gains are concentrated in particular factual domains or separable from general
-reasoning.
+The robust conclusion is therefore that 4B performs better than 1.7B on both
+evaluated benchmarks. The data do not yet justify attributing the full MMLU
+delta to knowledge capacity or concluding that RAG would close the gap.

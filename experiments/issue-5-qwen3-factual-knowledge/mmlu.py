@@ -156,7 +156,8 @@ def summarize_records(records: Iterable[dict]) -> dict:
 
 
 def write_summary(records_path: Path) -> Path:
-    records = [json.loads(line) for line in records_path.read_text(encoding="utf-8").splitlines()]
+    with records_path.open(encoding="utf-8") as handle:
+        records = [json.loads(line) for line in handle if line.strip()]
     output = records_path.with_suffix(records_path.suffix + ".summary.json")
     output.write_text(json.dumps(summarize_records(records), indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return output

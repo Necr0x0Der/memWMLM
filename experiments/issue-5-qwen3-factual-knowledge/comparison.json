@@ -1,0 +1,71 @@
+{
+  "bootstrap": {
+    "replicates": 10000,
+    "seed": 20261107
+  },
+  "dataset": {
+    "domain": "unfiltered-web",
+    "examples": 11313,
+    "name": "TriviaQA",
+    "sha256": "720e25ee87c04444f73ab1cadad9d8d9fd3449c38e739a1a4f4ae2484f2b2009",
+    "split": "dev",
+    "version": "1.0"
+  },
+  "delta_4b_minus_1_7b": {
+    "exact_match_percentage_points": 13.67453372226642,
+    "exact_match_percentage_points_bootstrap_95_ci": [
+      12.896667550605498,
+      14.470078670555997
+    ],
+    "f1_percentage_points": 14.239678716696774,
+    "f1_percentage_points_bootstrap_95_ci": [
+      13.46328583037718,
+      15.005943664005294
+    ]
+  },
+  "models": {
+    "Qwen/Qwen3-1.7B": {
+      "correct": 1891,
+      "empty_predictions": 0,
+      "exact_match_percent": 16.715283302395477,
+      "f1_percent": 23.276264876900004,
+      "generation_cap_hits": 84,
+      "multiline_predictions": 8,
+      "output_sha256": "133a57ec2c3d3c8d612431048cac5b0dbe4d22ca343993c771c967c0c313f052",
+      "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
+    },
+    "Qwen/Qwen3-4B": {
+      "correct": 3438,
+      "empty_predictions": 0,
+      "exact_match_percent": 30.38981702466189,
+      "f1_percent": 37.51594359359679,
+      "generation_cap_hits": 26,
+      "multiline_predictions": 8,
+      "output_sha256": "5b00a12da4e9310979110fd064a04b00b12ba098dd04cc05e6d6dcc58be6e30d",
+      "revision": "1cfa9a7208912126459214e8b04321603b3df60c"
+    }
+  },
+  "paired_exact_match": {
+    "both_correct": 1527,
+    "both_wrong": 7511,
+    "only_1_7b_correct": 364,
+    "only_4b_correct": 1911
+  },
+  "protocol": {
+    "dtype": "bfloat16",
+    "generation_seed": null,
+    "max_new_tokens": 32,
+    "no_thinking": true,
+    "prompt_instruction": "Answer the factual question with only the shortest answer. Do not explain.",
+    "prompt_version": "triviaqa_short_answer_v1",
+    "quantization": null,
+    "repository_commit": "0f1eece5b66b08539f91f2e2b4d6cd7fb43cc83b",
+    "sampling": "greedy",
+    "scoring": "TriviaQA-normalized exact match (primary) and token F1 (secondary)",
+    "tokenizer_revisions": {
+      "Qwen/Qwen3-1.7B": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+      "Qwen/Qwen3-4B": "1cfa9a7208912126459214e8b04321603b3df60c"
+    },
+    "torch_version": "2.15.0+cu132"
+  }
+}

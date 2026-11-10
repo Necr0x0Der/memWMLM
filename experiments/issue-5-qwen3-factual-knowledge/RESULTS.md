@@ -294,8 +294,21 @@ The evidence still has important limits:
 
 The robust conclusion is therefore that 4B performs better than 1.7B on both
 evaluated benchmarks, and its MMLU advantage persists under one deterministic
-random option order. Because 4B improved substantially in every MMLU domain,
-the evidence favors a broad scale effect over the strong interpretation that
-the larger model differs only through a few factual modules. The data still do
-not justify attributing the full MMLU delta to knowledge capacity or concluding
-that RAG would close the gap.
+random option order. The improvement across every MMLU domain does not reveal
+a clean domain-specific modular pattern, and these knowledge-heavy benchmarks
+do not cleanly separate factual capacity from reasoning ability.
+
+This result should also be read with the earlier frozen full-context bAbI
+comparison recorded in [`docs/decisions.md`](../../docs/decisions.md). There,
+4B improved substantially on only one of six tasks (QA4), improved slightly on
+QA12, regressed slightly on QA11, and was essentially unchanged on the other
+tasks. Those are single reported evaluations rather than matched multi-seed
+controls, but they show little evidence of a broad reasoning gain from scale.
+The contrast between limited bAbI gains and large TriviaQA/MMLU gains remains
+compatible with part of the larger model's advantage being externalizable
+factual knowledge; it does not identify or prove such modules.
+
+The current benchmark design therefore fails to isolate domain-specific factual
+modules. A direct follow-up is to test whether Qwen3-1.7B with a fixed external
+corpus and matched RAG protocol can close the TriviaQA gap to closed-book 4B,
+rather than continuing to infer modularity from model-size deltas alone.

@@ -193,11 +193,20 @@ wc -l artifacts/triviaqa-rag/dev-oracle-top5.jsonl
 
 The retrieval JSONL should contain 11,313 lines.
 
-## 5. Download Qwen3-1.7B
+## 5. Download the pinned Qwen models
+
+Download Qwen3-1.7B:
 
 ```bash
 .venv/bin/hf download Qwen/Qwen3-1.7B \
   --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+```
+
+Download Qwen3-4B before running the optional 4B oracle comparison:
+
+```bash
+.venv/bin/hf download Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c
 ```
 
 ## 6. Select a free GPU and run a smoke test
@@ -285,3 +294,20 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python experiments/issue-11-triviaqa-rag/run_qw
   --batch-size 1 --max-new-tokens 32 \
   --device cuda --dtype bfloat16
 ```
+
+Run Qwen3-4B on exactly the same oracle cache for the matched reader
+comparison:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python experiments/issue-11-triviaqa-rag/run_qwen_rag.py \
+  --dataset artifacts/triviaqa/triviaqa-unfiltered/unfiltered-web-dev.json \
+  --retrieval-cache artifacts/triviaqa-rag/dev-oracle-top5.jsonl \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --output runs/issue-11-triviaqa-rag/qwen3-4b-oracle-top5-dev.jsonl \
+  --batch-size 1 --max-new-tokens 32 \
+  --device cuda --dtype bfloat16
+```
+
+The two oracle runs must use the same `dev-oracle-top5.jsonl`. Their summaries
+are written next to their respective output JSONL files.

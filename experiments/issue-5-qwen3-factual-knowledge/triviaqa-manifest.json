@@ -1,0 +1,21 @@
+{
+  "dataset": "TriviaQA",
+  "version": "1.0",
+  "variant": "unfiltered",
+  "downloaded_on": "2026-11-06",
+  "source_url": "https://nlp.cs.washington.edu/triviaqa/data/triviaqa-unfiltered.tar.gz",
+  "archive": {
+    "path": "artifacts/triviaqa/triviaqa-unfiltered.tar.gz",
+    "bytes": 632549060,
+    "sha256": "7f0c94207fd0a1eb7bba3d52cdfe0735c98de850b9e5aa4e75f2776ef9a531d0"
+  },
+  "evaluation_split": {
+    "name": "dev",
+    "path": "artifacts/triviaqa/triviaqa-unfiltered/unfiltered-web-dev.json",
+    "bytes": 311475524,
+    "sha256": "720e25ee87c04444f73ab1cadad9d8d9fd3449c38e739a1a4f4ae2484f2b2009",
+    "examples": 11313,
+    "first_question_id": "tc_2",
+    "last_question_id": "qg_4656"
+  }
+}

@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -51,14 +51,15 @@ def create_vector_db(
     output_path,
     embedding_model=EMBEDDING_MODEL,
     embedding_revision=None,
+    document_batch_size=16,
 ):
-    documents = load_langchain_documents(files)
+    if document_batch_size <= 0:
+        raise ValueError("document_batch_size must be positive")
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=300,
         chunk_overlap=50,
         length_function=lambda text: len(text.split()),
     )
-    chunks = splitter.split_documents(documents)
 
     model_kwargs = {}
     if embedding_revision:
@@ -67,7 +68,23 @@ def create_vector_db(
         model_name=embedding_model,
         model_kwargs=model_kwargs,
     )
-    vector_db = FAISS.from_documents(chunks, embeddings)
+    vector_db = None
+    for start in range(0, len(files), document_batch_size):
+        batch_files = files[start : start + document_batch_size]
+        documents = load_langchain_documents(batch_files)
+        chunks = splitter.split_documents(documents)
+        if chunks:
+            if vector_db is None:
+                vector_db = FAISS.from_documents(chunks, embeddings)
+            else:
+                vector_db.add_documents(chunks)
+        print(
+            f"Indexed {min(start + document_batch_size, len(files))}/{len(files)} documents",
+            flush=True,
+        )
+
+    if vector_db is None:
+        raise ValueError("No documents were indexed")
     vector_db.save_local(output_path)
     return vector_db
 
@@ -149,6 +166,7 @@ def parse_args():
     parser.add_argument("--embedding-model", default=EMBEDDING_MODEL)
     parser.add_argument("--embedding-revision")
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--document-batch-size", type=int, default=16)
     parser.add_argument("--use-existing-index", action="store_true")
     return parser.parse_args()
 
@@ -160,6 +178,7 @@ def main():
             args.index_path,
             args.embedding_model,
             args.embedding_revision,
+            args.document_batch_size,
         )
     else:
         files = select_files(args.evidence_path, args.dataset)
@@ -175,3 +194,18 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# Узнайте revision embedding-модели:
+#
+# .venv/bin/python -c "from huggingface_hub import model_info; print(model_info('sentence-transformers/all-MiniLM-L6-v2').sha)"
+#
+# Затем подставьте полученный SHA:
+#
+# .venv/bin/python experiments/issue-11-triviaqa-rag/rag_for_triviaqa.py \
+#   --dataset artifacts/triviaqa/triviaqa-unfiltered/unfiltered-web-dev.json \
+#   --evidence-path /media/sveta/hdisk6/downloads/triviaqa-rc/evidence \
+#   --index-path artifacts/triviaqa-rag/dev-evidence-faiss \
+#   --output artifacts/triviaqa-rag/dev-faiss-top5.jsonl \
+#   --embedding-revision <EMBEDDING_SHA> \
+#   --top-k 5

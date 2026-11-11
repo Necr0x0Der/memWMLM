@@ -1,8 +1,8 @@
-# Run Qwen with an existing TriviaQA retrieval JSONL
+# Prepare TriviaQA retrieval and run Qwen
 
-This runbook is for the GPU machine. FAISS indexing is performed elsewhere;
-the FAISS index, evidence files, and embedding model do not need to be copied
-to this machine.
+FAISS indexing can be performed on a high-RAM machine and the resulting
+retrieval JSONL copied to the GPU machine. The FAISS index, evidence files, and
+embedding model do not need to be copied after retrieval is complete.
 
 Run all commands from the repository root.
 
@@ -17,9 +17,107 @@ git switch issue-11-triviaqa-rag
 
 If the repository is already present, only fetch and switch branches.
 
-## 2. Create the Qwen environment
+## 2. Prepare retrieval on a high-RAM machine
+
+Skip this section if `dev-faiss-top5.jsonl` and its `.meta.json` have already
+been created.
+
+The current LangChain FAISS implementation retains all passage texts in RAM.
+The 2.5 GB evidence archive expands to approximately 7.3 GB, so 64 GB RAM is
+recommended for indexing. A machine with 16 GB RAM is insufficient even with
+document batching.
+
+### 2.1 Install the RAG dependencies
 
 Install `uv` if necessary, then create the environment:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync --extra rag --python 3.12
+```
+
+The `rag` extra installs LangChain, `langchain-huggingface`,
+`sentence-transformers`, and `faiss-cpu`. Verify them with:
+
+```bash
+.venv/bin/python -c "import faiss, sentence_transformers; from langchain_huggingface import HuggingFaceEmbeddings; print('RAG dependencies OK')"
+```
+
+### 2.2 Download TriviaQA
+
+Download the unfiltered question archive and extract the dev JSON:
+
+```bash
+mkdir -p artifacts/triviaqa
+curl -fL --retry 3 --continue-at - \
+  https://nlp.cs.washington.edu/triviaqa/data/triviaqa-unfiltered.tar.gz \
+  -o artifacts/triviaqa/triviaqa-unfiltered.tar.gz
+tar -xzf artifacts/triviaqa/triviaqa-unfiltered.tar.gz \
+  -C artifacts/triviaqa \
+  triviaqa-unfiltered/unfiltered-web-dev.json
+```
+
+Download the approximately 2.5 GB TriviaQA RC archive containing Web and
+Wikipedia evidence, then extract it. Allow at least 12 GB free disk space for
+the archive and extraction, and preferably 20 GB including the generated index:
+
+```bash
+mkdir -p artifacts/triviaqa-rc
+curl -fL --retry 3 --continue-at - \
+  https://nlp.cs.washington.edu/triviaqa/data/triviaqa-rc.tar.gz \
+  -o artifacts/triviaqa-rc/triviaqa-rc.tar.gz
+tar -xzf artifacts/triviaqa-rc/triviaqa-rc.tar.gz \
+  -C artifacts/triviaqa-rc
+```
+
+Verify the expected paths:
+
+```bash
+test -f artifacts/triviaqa/triviaqa-unfiltered/unfiltered-web-dev.json
+test -d artifacts/triviaqa-rc/evidence/web
+test -d artifacts/triviaqa-rc/evidence/wikipedia
+du -sh artifacts/triviaqa-rc/triviaqa-rc.tar.gz artifacts/triviaqa-rc/evidence
+```
+
+### 2.3 Pin the embedding model
+
+Download the embedding model and print its immutable revision:
+
+```bash
+.venv/bin/hf download sentence-transformers/all-MiniLM-L6-v2
+.venv/bin/python -c "from huggingface_hub import model_info; print(model_info('sentence-transformers/all-MiniLM-L6-v2').sha)"
+```
+
+Copy the printed SHA into `<EMBEDDING_SHA>` in the next command.
+
+### 2.4 Build FAISS and create the retrieval JSONL
+
+```bash
+mkdir -p artifacts/triviaqa-rag
+
+.venv/bin/python experiments/issue-11-triviaqa-rag/rag_for_triviaqa.py \
+  --dataset artifacts/triviaqa/triviaqa-unfiltered/unfiltered-web-dev.json \
+  --evidence-path artifacts/triviaqa-rc/evidence \
+  --index-path artifacts/triviaqa-rag/dev-evidence-faiss \
+  --output artifacts/triviaqa-rag/dev-faiss-top5.jsonl \
+  --embedding-revision <EMBEDDING_SHA> \
+  --document-batch-size 16 \
+  --top-k 5
+```
+
+Indexing prints `Indexed N/96407 documents`. After indexing finishes, retrieval
+creates one JSONL record per question. Verify the result:
+
+```bash
+wc -l artifacts/triviaqa-rag/dev-faiss-top5.jsonl
+test -f artifacts/triviaqa-rag/dev-faiss-top5.jsonl.meta.json
+```
+
+The expected count is 11,313. Keep the JSONL and `.meta.json` together.
+
+## 3. Create the Qwen environment on the GPU machine
+
+Install `uv` if necessary, then create the environment without the RAG extra:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -28,7 +126,7 @@ uv sync --python 3.12
 
 This environment uses native model weights without NF4 or other quantization.
 
-## 3. Copy the prepared files
+## 4. Copy the prepared files to the GPU machine
 
 Create the artifact directories:
 
@@ -68,14 +166,14 @@ wc -l artifacts/triviaqa-rag/dev-faiss-top5.jsonl
 
 The retrieval JSONL should contain 11,313 lines.
 
-## 4. Download Qwen3-1.7B
+## 5. Download Qwen3-1.7B
 
 ```bash
 .venv/bin/hf download Qwen/Qwen3-1.7B \
   --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
 ```
 
-## 5. Select a free GPU and run a smoke test
+## 6. Select a free GPU and run a smoke test
 
 ```bash
 nvidia-smi
@@ -101,7 +199,7 @@ Check the smoke-test summary:
 cat runs/issue-11-triviaqa-rag/qwen3-1.7b-faiss-top5-smoke.jsonl.summary.json
 ```
 
-## 6. Run all 11,313 questions
+## 7. Run all 11,313 questions
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python experiments/issue-11-triviaqa-rag/run_qwen_rag.py \

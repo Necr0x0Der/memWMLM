@@ -23,6 +23,8 @@ Files:
 
 - `rag_for_triviaqa.py`: selects dev evidence, builds FAISS, and freezes top-5
   retrieval results;
+- `prepare_oracle_context.py`: creates a reader upper-bound cache by selecting
+  associated evidence chunks that contain a gold `NormalizedAlias`;
 - `run_qwen_rag.py`: resumable no-thinking Qwen inference and EM/F1 scoring;
 - `triviaqa.py`: TriviaQA answer normalization and metrics;
 - `RUNBOOK.md`: exact preparation and execution commands.

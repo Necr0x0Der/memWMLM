@@ -29,11 +29,20 @@ measures how much useful evidence the model can consume when answer-containing
 context is already available; it does not measure answer-independent retrieval
 quality.
 
-This oracle diagnostic does not close issue #11. That issue also calls for
-answer-independent global FAISS top-5 retrieval, recall@1/5, and retrieval-miss
-diagnostics. The oracle result establishes an upper bound first: it measures
-how much of the closed-book 1.7B versus 4B gap can be closed before testing
-whether ordinary retrieval can deliver similarly useful evidence.
+Issue #5 established the closed-book 1.7B versus 4B factual gap and raised the
+question of whether external factual context could substitute for model size.
+Issue #11 initially proposed global FAISS retrieval as the delivery mechanism.
+That design would mix two effects: whether useful evidence was retrieved and
+whether each model could use the evidence. The experiment was therefore
+refined to oracle selection and run for both model sizes with the same cache.
+This directly measures the intended model comparison under matched,
+answer-containing context.
+
+Answer-independent global FAISS top-5 retrieval, recall@1/5, and
+retrieval-miss diagnostics remain a separate retrieval test. They are needed
+to establish whether an ordinary retriever can deliver context comparable to
+the oracle cache, but they are not required to interpret the matched reader
+comparison reported here.
 
 ## Answer-independent FAISS condition
 

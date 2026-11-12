@@ -6,6 +6,37 @@ This experiment asks whether Qwen3-1.7B can use provided factual knowledge to
 close part of its closed-book TriviaQA gap to Qwen3-4B. It is an exploratory
 RAG/context baseline, not a test of the native memWMLM sidecar.
 
+## What exactly was done (oracle context)
+
+- **Corpus:** the official TriviaQA RC archive (`triviaqa-rc.tar.gz`, about
+  2.5 GB), containing Web search-result files and Wikipedia page files.
+- **Association:** each question in `unfiltered-web-dev.json` lists associated
+  `SearchResults` (Web files) and `EntityPages` (Wikipedia files).
+- **Chunks:** every associated file is split into 300-word passages with
+  50-word overlap using `RecursiveCharacterTextSplitter`.
+- **Gold aliases:** `Answer.NormalizedAliases` supplies the accepted answer
+  variants, for example `scorpio` for “What star sign is Jamie Lee Curtis?”.
+- **Oracle selection:** for each question, `prepare_oracle_context.py` examines
+  chunks from that question's associated files and selects up to `top_k=5`
+  chunks containing a gold alias. If none contains an alias, it falls back to
+  the first five associated chunks.
+- **Supplied knowledge:** the selected chunk text is passed to Qwen as context;
+  the model must produce the short answer from that context.
+
+The experiment infrastructure supplies these chunks and uses the gold answer
+to choose them. This makes the condition an oracle reader upper bound. It
+measures how much useful evidence the model can consume when answer-containing
+context is already available; it does not measure answer-independent retrieval
+quality.
+
+This oracle diagnostic does not close issue #11. That issue also calls for
+answer-independent global FAISS top-5 retrieval, recall@1/5, and retrieval-miss
+diagnostics. The oracle result establishes an upper bound first: it measures
+how much of the closed-book 1.7B versus 4B gap can be closed before testing
+whether ordinary retrieval can deliver similarly useful evidence.
+
+## Answer-independent FAISS condition
+
 The corpus is the global union of the official Web and Wikipedia evidence files
 listed in `unfiltered-web-dev.json`. The code follows the original simple
 pipeline: collect filenames, load those files, split their text, and create one

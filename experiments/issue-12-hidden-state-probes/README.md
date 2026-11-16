@@ -172,6 +172,38 @@ each instruction condition: doing so answers a different, condition-specific
 decodability question and adds another model-selection axis.  It can be added
 as a separately labelled follow-up after the shared readout is evaluated.
 
+## Fact-order transfer follow-up
+
+`analyze_fact_order_transfer.py` separates condition-specific decodability
+from readout alignment. It fits two probe banks: one using only canonical train
+rows and one using only shuffled train rows. Each bank selects its own pooling,
+layer, and L2 using validation rows of the same source condition only. The
+locked bank is then evaluated on both test conditions, producing:
+
+```text
+canonical -> canonical    canonical -> shuffled
+shuffled  -> canonical    shuffled  -> shuffled
+```
+
+This distinction matters because a weak shared probe on shuffled rows could
+mean either that state information is not linearly decodable there or that it
+is encoded in a condition-specific linear coordinate system.
+
+```bash
+python experiments/issue-12-hidden-state-probes/analyze_fact_order_transfer.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-qwen3-1.7b \
+  --l2-values 0,1e-5,1e-4,1e-3 \
+  --device cpu
+```
+
+The output contains `report.json`, `probe-trained-canonical.pt`, and
+`probe-trained-shuffled.pt`. Each of the four cells includes per-probe and
+joint exact-state metrics, instruction breakdowns, group-bootstrap intervals,
+and the source-condition shuffled-label control. The original shared-probe
+report remains unchanged and should be retained as a separate result.
+
 ## Required interpretation and controls
 
 High linear-probe accuracy means that the tested features make the state

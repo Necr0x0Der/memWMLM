@@ -276,3 +276,38 @@ Interpret this stage as linear decodability only. The test report must include
 the joint exact-state score and the instruction/order breakdowns, not only the
 best individual pairwise probe. Source-free causal use and full-context Qwen
 accuracy remain separate controls/stages.
+
+## 9. Run the fact-order transfer diagnostic
+
+Keep the original shared-probe output unchanged. Use the same immutable feature
+directory to fit source-condition probes and evaluate the complete 2x2 matrix:
+
+```bash
+.venv/bin/python \
+  experiments/issue-12-hidden-state-probes/analyze_fact_order_transfer.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-qwen3-1.7b \
+  --l2-values 0,1e-5,1e-4,1e-3 \
+  --max-iter 100 \
+  --device cpu \
+  --shuffle-seed 12012 \
+  --bootstrap-samples 2000
+```
+
+For each train fact order, hyperparameters are selected only on matching-order
+validation rows. Neither test condition participates in selection. Print the
+four locked headline cells with:
+
+```bash
+.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-qwen3-1.7b/report.json').read_text()); print('train\\test canonical shuffled'); [print(train, *[f\"{r['regimes'][train]['evaluation'][test]['overall']['mean_macro_accuracy']:.4f}\" for test in ('canonical','shuffled')]) for train in ('canonical','shuffled')]"
+```
+
+Interpret the matrix as follows:
+
+- strong diagonal and weak off-diagonal cells: state is condition-specifically
+  decodable, but the linear readout is not aligned across fact orders;
+- weak `shuffled -> shuffled`: shuffled presentation does not yield a strongly
+  linearly decodable state even when the readout is trained for that condition;
+- strong diagonal and off-diagonal cells: one order-robust linear state is
+  available.

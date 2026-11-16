@@ -20,6 +20,7 @@ from train_linear_probes import (  # noqa: E402
     run_experiment,
     shuffle_targets_by_group,
 )
+from analyze_fact_order_transfer import run_fact_order_transfer  # noqa: E402
 
 
 def file_hash(path: Path) -> str:
@@ -208,3 +209,104 @@ def test_end_to_end_selection_writes_locked_report(tmp_path: Path) -> None:
     assert report["evaluation"]["test"]["overall"]["mean_macro_accuracy"] == 1.0
     assert "group_bootstrap_95ci" in report["evaluation"]["test"]
     assert (report_path.parent / "selected_probe.pt").is_file()
+
+
+def test_fact_order_transfer_separates_within_and_cross_condition_readouts(
+    tmp_path: Path,
+) -> None:
+    dataset_dir = tmp_path / "dataset"
+    feature_dir = tmp_path / "features"
+    dataset_dir.mkdir()
+    dataset_hashes = {}
+    split_rows = {}
+    for split in ("train", "validation", "test"):
+        rows = []
+        feature_values = []
+        for group_index, sign in enumerate((-1.0, 1.0)):
+            for instruction in ("none", "track"):
+                for fact_order in ("canonical", "shuffled"):
+                    row_id = f"{split}-{group_index}-{instruction}-{fact_order}"
+                    rows.append(
+                        {
+                            "id": row_id,
+                            "group_id": f"{split}-group-{group_index}",
+                            "instruction_id": instruction,
+                            "fact_order": fact_order,
+                            "targets": {"positive": int(sign > 0)},
+                        }
+                    )
+                    # Both conditions contain the label, but in opposite linear
+                    # coordinates. Within-condition probes should be perfect and
+                    # cross-condition transfer should fail.
+                    coordinate = sign if fact_order == "canonical" else -sign
+                    feature_values.append([[coordinate, coordinate * 0.5]])
+        split_rows[split] = rows
+        dataset_path = dataset_dir / f"{split}.jsonl"
+        dataset_path.write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8"
+        )
+        dataset_hashes[dataset_path.name] = file_hash(dataset_path)
+        split_feature_dir = feature_dir / split
+        split_feature_dir.mkdir(parents=True)
+        shard_path = split_feature_dir / "shard-00000.pt"
+        tensor = torch.tensor(feature_values, dtype=torch.float32)
+        torch.save(
+            {
+                "ids": [row["id"] for row in rows],
+                "layer_indices": torch.tensor([4], dtype=torch.int16),
+                "last_token": tensor,
+                "mean_pool": tensor * 2,
+            },
+            shard_path,
+        )
+    (dataset_dir / "manifest.json").write_text(
+        json.dumps({"probes": {"positive": {"classes": [0, 1]}}}), encoding="utf-8"
+    )
+    (feature_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "dataset": {"files": dataset_hashes},
+                "splits": {
+                    split: {
+                        "shards": [
+                            {
+                                "path": "shard-00000.pt",
+                                "examples": len(split_rows[split]),
+                                "sha256": file_hash(
+                                    feature_dir / split / "shard-00000.pt"
+                                ),
+                            }
+                        ]
+                    }
+                    for split in ("train", "validation", "test")
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report_path = run_fact_order_transfer(
+        dataset_dir,
+        feature_dir,
+        tmp_path / "transfer-output",
+        l2_values=(1e-4,),
+        max_iter=30,
+        device="cpu",
+        shuffle_seed=12,
+        bootstrap_samples=20,
+    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+
+    matrix = {
+        (train_order, test_order): report["regimes"][train_order]["evaluation"][
+            test_order
+        ]["overall"]["mean_macro_accuracy"]
+        for train_order in ("canonical", "shuffled")
+        for test_order in ("canonical", "shuffled")
+    }
+    assert matrix[("canonical", "canonical")] == 1.0
+    assert matrix[("shuffled", "shuffled")] == 1.0
+    assert matrix[("canonical", "shuffled")] == 0.0
+    assert matrix[("shuffled", "canonical")] == 0.0
+    assert (report_path.parent / "probe-trained-canonical.pt").is_file()
+    assert (report_path.parent / "probe-trained-shuffled.pt").is_file()

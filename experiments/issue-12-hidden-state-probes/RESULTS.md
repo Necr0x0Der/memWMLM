@@ -1,7 +1,10 @@
 # Results: linear probes on Qwen3-1.7B hidden features
 
-This document summarizes the first issue #12 linear-probe run. The underlying
-machine-readable result is `artifacts/probes-qwen3-1.7b/report.json`.
+This document summarizes the issue #12 shared-probe run and the subsequent
+fact-order transfer diagnostic. The underlying machine-readable results are:
+
+- `artifacts/probes-qwen3-1.7b/report.json`;
+- `artifacts/fact-order-transfer-qwen3-1.7b/report.json`.
 
 ## Experimental setup
 
@@ -9,11 +12,13 @@ machine-readable result is `artifacts/probes-qwen3-1.7b/report.json`.
 - Input: situation only, without a question or chat template.
 - Candidate transformer blocks: 4, 8, 12, 16, 20, 24, and 28.
 - Representations: last situation token and mean-pooled situation tokens.
-- Readout: one shared linear classifier per fixed question across all
-  instruction and fact-order conditions.
-- Selection: pooling, layer, and L2 were selected using validation mean
-  per-probe macro accuracy. Test was evaluated only after selection.
-- Selected configuration: mean pooling, block 16, L2 = `1e-5`.
+- Shared readout: one linear classifier per fixed question across all
+  instruction and fact-order conditions. Its selected configuration was mean
+  pooling, block 16, L2 = `1e-5`.
+- Fact-order transfer readouts: one probe bank trained only on canonical rows
+  and one trained only on shuffled rows. Pooling, layer, and L2 were selected
+  independently using validation rows of the matching source condition only.
+  Both test conditions were evaluated after each source probe was locked.
 - Independent split unit: abstract person-rank layout. The test split contains
   4 independent layouts and 768 rendered examples.
 - Confidence intervals: 95% percentile bootstrap over abstract-layout groups.
@@ -60,7 +65,7 @@ ordering rather than seven independent state fields.
 The reference mean macro accuracy for uniformly random predictions is about
 47.6%: six binary probes at 50% and one three-class probe at 33.3%.
 
-## Main results
+## Shared-probe results
 
 | Test condition | Examples | Mean macro accuracy | Joint exact state |
 |---|---:|---:|---:|
@@ -125,42 +130,119 @@ token trace. Success with this representation is weaker evidence for a compact
 prepared state than success at one final token or through a source-free fixed
 bottleneck.
 
+## Fact-order transfer diagnostic
+
+The shared run could not distinguish two explanations for weak shuffled
+performance: the state might be absent from the tested representation, or it
+might remain linearly decodable in a different condition-specific coordinate
+system. The transfer diagnostic therefore fitted and selected probes
+separately for canonical and shuffled train rows, then evaluated each locked
+probe on both test orders.
+
+The table reports mean macro accuracy and joint exact-state accuracy. The
+parenthesized values are the corresponding source-condition shuffled-label
+controls.
+
+| Train order | Canonical test | Shuffled test |
+|---|---:|---:|
+| Canonical | **93.0% / 72.1%** (65.6% / 16.7%) | 45.1% / 11.5% (44.1% / 12.8%) |
+| Shuffled | 48.5% / 13.0% (50.8% / 12.5%) | **48.4% / 9.6%** (47.5% / 12.2%) |
+
+### Canonical-specific probe
+
+The canonical-only selection chose mean pooling at block 8 with L2 = `0.001`.
+It achieved 100% validation macro and exact-state accuracy. On canonical test
+rows it achieved:
+
+- mean macro accuracy: 93.0%, 95% CI 87.4% to 98.4%;
+- joint exact-state accuracy: 72.1%, 95% CI 53.9% to 89.6%.
+
+This is stronger than the shared probe on canonical rows (86.9% macro and
+58.1% exact state), showing that mixing shuffled rows into a single shared
+readout reduced the best canonical decodability estimate.
+
+The canonical-only probe did not transfer to shuffled rows: 45.1% macro and
+11.5% exact state, essentially matching its shuffled-label control at 44.1%
+and 12.8%.
+
+### Shuffled-specific probe
+
+The shuffled-only selection chose mean pooling at block 28 with L2 = `0.001`.
+Even its selected validation result was weak: 52.3% macro and 16.7% exact
+state. On shuffled test rows it achieved:
+
+- mean macro accuracy: 48.4%, 95% CI 45.6% to 50.9%;
+- joint exact-state accuracy: 9.6%, 95% CI 6.3% to 15.6%.
+
+The matched shuffled-label control achieved 47.5% macro and 12.2% exact state.
+Thus the shuffled-specific probe provided no meaningful improvement over the
+negative control. The best validation candidates across other layers and both
+pooling rules were also clustered near 52% macro, so the failure is not
+explained by selecting one unusually bad layer.
+
+The shuffled-only probe also did not transfer to canonical rows: 48.5% macro
+and 13.0% exact state, compared with its control at 50.8% and 12.5%.
+
+### Instructions within the condition-specific runs
+
+Instructions did not rescue shuffled-specific decodability:
+
+| Shuffled train and test instruction | Mean macro accuracy | Joint exact state |
+|---|---:|---:|
+| No instruction | 53.0% | 11.5% |
+| `Imagine the situation.` | 47.0% | 8.3% |
+| `Think about where Mary is.` | 50.0% | 12.5% |
+| `Think about who is where.` | 43.5% | 6.3% |
+
+With only four independent test layouts, these differences are consistent
+with noise rather than a reliable instruction effect.
+
 ## Interpretation
 
-The run provides evidence that Qwen3-1.7B hidden features contain linearly
-decodable spatial relations under a regular canonical presentation. It does
-not provide evidence for a stable, order-invariant world-state representation.
+The two runs provide strong evidence that Qwen3-1.7B hidden features contain
+linearly decodable spatial relations under a regular canonical presentation.
+They do not provide evidence for a stable, order-invariant world-state
+representation.
 
-The strongest observation is the fact-order gap:
+The strongest observation is the condition-specific fact-order gap:
 
-- canonical mean macro accuracy: 86.9%;
-- shuffled mean macro accuracy: 51.4%;
-- canonical exact state: 58.1%;
-- shuffled exact state: 14.3%.
+- canonical-to-canonical mean macro accuracy: 93.0%;
+- shuffled-to-shuffled mean macro accuracy: 48.4%;
+- canonical-to-canonical exact state: 72.1%;
+- shuffled-to-shuffled exact state: 9.6%.
 
-Because the canonical and shuffled inputs contain identical facts, this gap
-shows that the shared linear readout is strongly dependent on how those facts
+The transfer diagnostic resolves the main ambiguity in the shared result. If
+shuffled representations contained the same state in a different linear
+coordinate system, a probe trained and selected only on shuffled rows should
+have recovered it. Instead, shuffled-to-shuffled performance remained at the
+random reference and matched its shuffled-label control. Both cross-order
+directions also failed.
+
+Because the canonical and shuffled inputs contain identical facts, the result
+shows that linear state decodability is strongly dependent on how those facts
 are arranged. In the canonical format, room relations form a left-to-right
 chain and person facts use a fixed name order. The probe can exploit hidden
-features aligned with that regular sequence. After permutation, performance is
-near the random reference and only slightly above the matched shuffled-label
-control.
+features aligned with that regular sequence. After permutation, none of the
+tested layers or pooling rules exposes a comparably integrated linear state.
 
 The appropriate conclusion is therefore:
 
-> Frozen Qwen3-1.7B hidden features contain format-dependent, linearly
-> decodable spatial information, but this experiment does not establish a
-> stable or causally usable world-state representation.
+> Frozen Qwen3-1.7B hidden features contain a strongly linearly decodable
+> spatial state under canonical presentation. The same state is not reliably
+> linearly decodable after fact-order permutation, even with a probe trained
+> specifically for shuffled inputs. The experiment therefore does not
+> establish a stable, order-invariant, or causally usable world-state
+> representation.
 
 ## Limitations
 
 1. Only 24 abstract layouts exist, with 3 validation and 4 test layouts. The
    independent sample size is much smaller than the rendered row count, and
    the confidence intervals are correspondingly wide.
-2. A shared probe across fact-order conditions tests whether one aligned
-   linear readout transfers between conditions. Failure on shuffled text does
-   not distinguish information loss from a condition-specific rotation or
-   reorganization of the representation.
+2. The condition-specific diagnostic rules out a simple alternative linear
+   coordinate system for shuffled inputs, but it does not show that all state
+   information is absent. The information could be nonlinearly decodable or
+   distributed in a representation not tested here.
 3. The shuffled-label control is above the theoretical random reference on
    some probes, consistent with high variance from the small structured split.
    Direct differences from the matched control are more informative than raw
@@ -170,18 +252,19 @@ The appropriate conclusion is therefore:
 5. Full-context Qwen QA and lexical/surface baselines have not yet been
    reported, so task solvability and surface-feature contributions remain to
    be quantified.
-6. The result directory currently preserves the report and selected probe, but
-   not the feature manifest or feature shards needed to audit extraction
+6. The result directories currently preserve the reports and selected probes,
+   but not the feature manifest or feature shards needed to audit extraction
    provenance and reproduce fitting from the saved activations.
 
 ## Recommended next steps
 
-1. Train and evaluate separately labelled canonical-only and shuffled-only
-   probes. A strong shuffled-only probe would show that the state remains
-   decodable but is not aligned with the canonical representation; a weak one
-   would support genuine loss of linear decodability.
-2. Run the frozen full-context Qwen QA control and a lexical/surface baseline
-   on the same splits.
+1. Run the frozen full-context Qwen QA control separately for canonical and
+   shuffled inputs. If Qwen solves shuffled QA while the shuffled probe fails,
+   the model likely computes the relation at question time from the token
+   trace rather than preparing a linearly readable state in advance.
+2. Run a lexical/surface baseline and, as a secondary diagnostic, a small MLP
+   probe on the same frozen features. The MLP must remain clearly labelled as
+   nonlinear decodability rather than evidence for a compact linear state.
 3. Expand the synthetic task so validation and test contain substantially more
    independent world states, names, locations, and event compositions.
 4. Add paired group-level intervals for fact-order and instruction contrasts.

@@ -311,3 +311,46 @@ Interpret the matrix as follows:
   linearly decodable state even when the readout is trained for that condition;
 - strong diagonal and off-diagonal cells: one order-robust linear state is
   available.
+
+## 10. Run the full-context short-answer control
+
+This control does not fit a probe. It gives frozen Qwen the complete situation
+and one fixed question, asks for exactly one allowed short answer, and uses
+greedy generation. Replace `0` with the physical number of a free GPU:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-qwen3-1.7b \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --splits validation,test \
+  --device cuda \
+  --model-dtype bfloat16 \
+  --batch-size 16 \
+  --max-length 256 \
+  --max-new-tokens 8 \
+  --bootstrap-samples 2000 \
+  --bootstrap-seed 12013
+```
+
+The command writes:
+
+```text
+experiments/issue-12-hidden-state-probes/artifacts/full-context-qwen3-1.7b/report.json
+experiments/issue-12-hidden-state-probes/artifacts/full-context-qwen3-1.7b/responses.jsonl
+```
+
+`responses.jsonl` is part of the result: preserve it so every generated answer
+and parser decision can be audited. Inspect headline test results with:
+
+```bash
+.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/full-context-qwen3-1.7b/report.json').read_text()); t=r['evaluation']['test']; print('overall',t['overall']); print('canonical',t['fact_order']['canonical']); print('shuffled',t['fact_order']['shuffled']); print('invalid',t['invalid_answers'])"
+```
+
+If full-context shuffled accuracy is high while shuffled hidden-state probes
+remain at chance, the model can derive answers from the token trace at question
+time without exposing a linearly readable prepared state. If both are weak,
+the shuffled task itself is not reliably solved by this model and the probe
+failure cannot isolate state preparation.

@@ -204,6 +204,35 @@ joint exact-state metrics, instruction breakdowns, group-bootstrap intervals,
 and the source-condition shuffled-label control. The original shared-probe
 report remains unchanged and should be retained as a separate result.
 
+## Full-context Qwen QA control
+
+`evaluate_full_context_qa.py` asks the frozen Qwen model each manifest question
+with the complete situation still in context. This stage does not train a
+probe. The prompt asks for exactly one allowed short answer (`Yes`/`No` or one
+person name), and the model produces text with deterministic greedy generation.
+Ground truth is used only after generation to compute accuracy.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-qwen3-1.7b \
+  --splits validation,test \
+  --device cuda \
+  --model-dtype bfloat16 \
+  --batch-size 16 \
+  --max-length 256 \
+  --max-new-tokens 8
+```
+
+The output contains `report.json` and `responses.jsonl`. The latter preserves
+every raw model response, parsed class, target, and condition for audit. Parsing
+is intentionally strict: the first generated word must be one of the allowed
+answers; format violations are counted as incorrect and reported separately.
+Metrics use the same per-question macro accuracy, joint exact-state accuracy,
+instruction/fact-order breakdowns, and group-bootstrap intervals as the probe
+reports.
+
 ## Required interpretation and controls
 
 High linear-probe accuracy means that the tested features make the state

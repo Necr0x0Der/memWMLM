@@ -21,6 +21,12 @@ from train_linear_probes import (  # noqa: E402
     shuffle_targets_by_group,
 )
 from analyze_fact_order_transfer import run_fact_order_transfer  # noqa: E402
+from evaluate_full_context_qa import (  # noqa: E402
+    answer_text,
+    build_prompt,
+    parse_splits,
+    parse_short_answer,
+)
 
 
 def file_hash(path: Path) -> str:
@@ -59,6 +65,29 @@ def test_probe_bank_learns_multiple_fixed_questions() -> None:
 
     assert report["mean_macro_accuracy"] == 1.0
     assert report["joint_exact_state_accuracy"] == 1.0
+
+
+def test_full_context_short_answer_prompt() -> None:
+    assert answer_text(0) == "No"
+    assert answer_text(1) == "Yes"
+    assert answer_text("Mary") == "Mary"
+    prompt = build_prompt(
+        "Mary is in room A.",
+        "Who is leftmost?",
+        ["Mary", "John", "Bob"],
+    )
+    assert prompt == (
+        "Mary is in room A.\n\nQuestion: Who is leftmost?\n"
+        "Answer with exactly one of: Mary, John, Bob.\nAnswer:"
+    )
+
+
+def test_full_context_short_answer_parser_is_strict() -> None:
+    assert parse_short_answer(" Yes\n", ["No", "Yes"]) == 1
+    assert parse_short_answer("Mary.", ["Mary", "John", "Bob"]) == 0
+    assert parse_short_answer("The answer is Mary", ["Mary", "John", "Bob"]) is None
+    assert parse_short_answer("", ["No", "Yes"]) is None
+    assert parse_splits("validation,test") == ("validation", "test")
 
 
 def test_group_shuffle_keeps_matched_variants_together() -> None:

@@ -1,10 +1,13 @@
 # Results: linear probes on Qwen3-1.7B hidden features
 
-This document summarizes the issue #12 shared-probe run and the subsequent
-fact-order transfer diagnostic. The underlying machine-readable results are:
+This document summarizes the issue #12 shared-probe run, the subsequent
+fact-order transfer diagnostic, and the frozen-model full-context QA control.
+The underlying machine-readable results are:
 
 - `artifacts/probes-qwen3-1.7b/report.json`;
-- `artifacts/fact-order-transfer-qwen3-1.7b/report.json`.
+- `artifacts/fact-order-transfer-qwen3-1.7b/report.json`;
+- `artifacts/full-context-final-qwen3-1.7b/report.json` and its auditable raw
+  generations in `responses.jsonl`.
 
 ## Experimental setup
 
@@ -197,12 +200,78 @@ Instructions did not rescue shuffled-specific decodability:
 With only four independent test layouts, these differences are consistent
 with noise rather than a reliable instruction effect.
 
+## Full-context frozen-model QA control
+
+This control tests whether the frozen model can answer the seven fixed
+questions when the complete situation remains in its token context. It does
+not train a probe. Each prompt is rendered with Qwen's chat template, thinking
+is disabled, and the model generates greedily. The required answer is
+`FINAL: <answer>`; ground truth is consulted only after generation to compute
+metrics, and no answer is inferred from logits.
+
+The successful run used result schema
+`spatial-full-context-final-answer-v3` at repository commit `6ec85df`. All
+9,408 validation and test question responses were parsed successfully, so the
+scores below are not artifacts of rejected answer formatting.
+
+### Test results
+
+| Fact order | Situations | Question responses | Mean macro accuracy | Joint exact state |
+|---|---:|---:|---:|---:|
+| Canonical | 384 | 2,688 | 51.2% | 0.0% (0/384) |
+| Shuffled | 384 | 2,688 | 54.1% | 1.8% (7/384) |
+| All | 768 | 5,376 | 52.7% | 0.9% (7/768) |
+
+For all test examples, the 95% group-bootstrap intervals are:
+
+- mean macro accuracy: 50.0% to 56.9%;
+- joint exact-state accuracy: 0.5% to 1.4%.
+
+Validation was similar: 52.2% mean macro accuracy and 0.3% joint exact state.
+The corresponding canonical and shuffled validation macro scores were 51.0%
+and 53.4%. The reference mean macro accuracy is 47.6%, as defined above.
+
+The modest aggregate excess over that reference is not evidence that the
+model recovered the complete state. Canonical pairwise behavior was dominated
+by a strong `Yes` bias: for three questions the model answered `FINAL: Yes`
+on all 384 test situations, and for the other three binary questions it did so
+on 371 to 380 situations. Consequently, canonical pairwise macro accuracies
+were only 50.0% to 51.8%. The canonical leftmost-person probe reached 53.8%
+macro accuracy, but no canonical situation had all seven answers correct.
+
+Shuffling produced less degenerate answer distributions and 52.6% to 58.3%
+macro accuracy on the binary questions, but leftmost-person macro accuracy was
+43.1% and only seven shuffled situations had a completely correct state. The
+small canonical/shuffled difference should not be interpreted as evidence
+that shuffling helps: no confidence interval for that paired contrast was
+computed, and both conditions have very weak exact-state performance.
+
+Instructions did not materially change the result:
+
+| Instruction | Mean macro accuracy | Joint exact state |
+|---|---:|---:|
+| No instruction | 53.1% | 1.6% |
+| `Imagine the situation.` | 53.0% | 0.0% |
+| `Think about where Mary is.` | 52.4% | 1.0% |
+| `Think about who is where.` | 52.2% | 1.0% |
+
+The full-context control therefore does not show that Qwen3-1.7B reliably
+solves this spatial QA task at answer time. In particular, the shuffled probe
+failure cannot be interpreted in isolation as a failure to prepare a state
+that the model would otherwise use successfully: native full-context QA is
+also weak. Conversely, canonical hidden features are highly linearly
+decodable even though the model's own canonical answers are nearly at the
+reference level. Linear decodability and native answer behavior are therefore
+clearly separated in this experiment.
+
 ## Interpretation
 
-The two runs provide strong evidence that Qwen3-1.7B hidden features contain
+The probe runs provide strong evidence that Qwen3-1.7B hidden features contain
 linearly decodable spatial relations under a regular canonical presentation.
 They do not provide evidence for a stable, order-invariant world-state
-representation.
+representation. The full-context control additionally shows that high
+canonical linear decodability does not imply that the frozen model will use
+that information to answer the fixed questions correctly under this protocol.
 
 The strongest observation is the condition-specific fact-order gap:
 
@@ -249,22 +318,23 @@ The appropriate conclusion is therefore:
    accuracy alone.
 4. The run tests decodability, not causal use. It does not remove source tokens
    and feed a hidden-state bottleneck to a frozen reader.
-5. Full-context Qwen QA and lexical/surface baselines have not yet been
-   reported, so task solvability and surface-feature contributions remain to
-   be quantified.
+5. The full-context control shows weak native task performance, so it cannot
+   serve as a positive solvability control for interpreting the shuffled probe
+   failure. Lexical/surface baselines have not yet been reported.
 6. The result directories currently preserve the reports and selected probes,
    but not the feature manifest or feature shards needed to audit extraction
    provenance and reproduce fitting from the saved activations.
 
 ## Recommended next steps
 
-1. Run the frozen full-context Qwen QA control separately for canonical and
-   shuffled inputs. If Qwen solves shuffled QA while the shuffled probe fails,
-   the model likely computes the relation at question time from the token
-   trace rather than preparing a linearly readable state in advance.
-2. Run a lexical/surface baseline and, as a secondary diagnostic, a small MLP
+1. Run a lexical/surface baseline and, as a secondary diagnostic, a small MLP
    probe on the same frozen features. The MLP must remain clearly labelled as
    nonlinear decodability rather than evidence for a compact linear state.
+2. Diagnose the weak full-context behavior with controls that change only the
+   answer interface or task presentation, while preserving greedy generation
+   and reporting raw outputs. A larger or instruction-tuned model can provide
+   an additional positive solvability control, but should be reported as a
+   separate model rather than substituted into the Qwen3-1.7B result.
 3. Expand the synthetic task so validation and test contain substantially more
    independent world states, names, locations, and event compositions.
 4. Add paired group-level intervals for fact-order and instruction contrasts.

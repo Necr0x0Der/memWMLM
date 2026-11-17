@@ -2,9 +2,10 @@
 """Ask frozen Qwen issue #12 questions with the full situation context.
 
 For every fixed question, the model receives the complete situation and an
-instruction to answer with exactly one allowed short answer. Greedy generation
-is used and the generated text is parsed strictly. No probe is trained here;
-ground truth is used only after generation to compute metrics.
+instruction to answer with exactly one allowed short answer through Qwen's chat
+template with thinking disabled. Greedy generation is parsed strictly, while
+the first-step logits over allowed answers are recorded as a secondary control.
+No probe is trained; ground truth is used only to compute metrics.
 """
 
 from __future__ import annotations
@@ -20,6 +21,8 @@ from typing import Mapping, Sequence
 
 import torch
 from torch import Tensor
+
+from memwmlm.models.qwen import QwenChatPromptFormatter
 
 from extract_hidden_features import (
     DEFAULT_MODEL,
@@ -39,7 +42,7 @@ from train_linear_probes import (
 )
 
 
-RESULT_SCHEMA_VERSION = "spatial-full-context-short-generation-v1"
+RESULT_SCHEMA_VERSION = "spatial-full-context-chat-generation-v2"
 DEFAULT_SPLITS = ("validation", "test")
 PROMPT_TEMPLATE = (
     "{situation}\n\nQuestion: {question}\n"
@@ -81,32 +84,75 @@ def parse_short_answer(response: str, answers: Sequence[str]) -> int | None:
     return matches[0] if len(matches) == 1 else None
 
 
+def candidate_token_id_sets(
+    tokenizer: object,
+    answers: Sequence[str],
+) -> list[list[int]]:
+    """Return one-token spellings of each allowed answer, with/without a space."""
+    result: list[list[int]] = []
+    for answer in answers:
+        ids: list[int] = []
+        for spelling in (answer, " " + answer):
+            encoded = tokenizer(spelling, add_special_tokens=False)["input_ids"]
+            if len(encoded) == 1 and int(encoded[0]) not in ids:
+                ids.append(int(encoded[0]))
+        if not ids:
+            raise ValueError(
+                f"Allowed answer {answer!r} has no one-token spelling; "
+                "first-step logit comparison is unavailable"
+            )
+        result.append(ids)
+    if any(set(first) & set(second) for i, first in enumerate(result) for second in result[i + 1 :]):
+        raise ValueError(f"Allowed answers have overlapping token IDs: {result}")
+    return result
+
+
+def predictions_from_allowed_logits(
+    logits: Tensor,
+    token_id_sets: Sequence[Sequence[int]],
+) -> Tensor:
+    """Choose the answer with the best first-step logit over its spellings."""
+    if logits.ndim != 2:
+        raise ValueError("logits must have shape [batch, vocabulary]")
+    class_scores: list[Tensor] = []
+    for token_ids in token_id_sets:
+        ids = torch.tensor(token_ids, dtype=torch.long, device=logits.device)
+        if ids.numel() == 0 or torch.any(ids < 0) or torch.any(ids >= logits.shape[1]):
+            raise ValueError("Candidate token ID is outside the model vocabulary")
+        class_scores.append(logits.index_select(1, ids).amax(dim=1))
+    return torch.stack(class_scores, dim=1).argmax(dim=1).cpu()
+
+
 def generate_answers(
     rows: Sequence[Mapping[str, object]],
     question: str,
     answers: Sequence[str],
     tokenizer: object,
+    formatter: object,
     model: object,
+    token_id_sets: Sequence[Sequence[int]],
     batch_size: int,
     max_length: int,
     max_new_tokens: int,
     device: str,
-    add_special_tokens: bool,
-) -> tuple[Tensor, list[str]]:
+) -> tuple[Tensor, Tensor, list[str]]:
     if batch_size <= 0 or max_length <= 0 or max_new_tokens <= 0:
         raise ValueError("batch_size, max_length, and max_new_tokens must be positive")
 
     predictions: list[Tensor] = []
+    logit_predictions: list[Tensor] = []
     responses: list[str] = []
     for start in range(0, len(rows), batch_size):
         batch = rows[start : start + batch_size]
-        prompts = [build_prompt(str(row["text"]), question, answers) for row in batch]
+        prompts = [
+            formatter(build_prompt(str(row["text"]), question, answers)) for row in batch
+        ]
         encoded = tokenizer(
             prompts,
             padding=True,
             truncation=True,
             max_length=max_length,
-            add_special_tokens=add_special_tokens,
+            add_special_tokens=False,
             return_tensors="pt",
         )
         model_inputs = {name: tensor.to(device) for name, tensor in encoded.items()}
@@ -126,8 +172,15 @@ def generate_answers(
                 num_beams=1,
                 max_new_tokens=max_new_tokens,
                 pad_token_id=tokenizer.pad_token_id,
+                return_dict_in_generate=True,
+                output_scores=True,
             )
-        continuation = generated[:, model_inputs["input_ids"].shape[1] :]
+        if not generated.scores:
+            raise RuntimeError("Generation did not return first-step logits")
+        logit_predictions.append(
+            predictions_from_allowed_logits(generated.scores[0], token_id_sets)
+        )
+        continuation = generated.sequences[:, model_inputs["input_ids"].shape[1] :]
         batch_responses = tokenizer.batch_decode(
             continuation,
             skip_special_tokens=True,
@@ -144,7 +197,7 @@ def generate_answers(
             )
         )
         del generated, continuation
-    return torch.cat(predictions), responses
+    return torch.cat(predictions), torch.cat(logit_predictions), responses
 
 
 def parse_splits(spec: str) -> tuple[str, ...]:
@@ -169,7 +222,6 @@ def run_full_context_qa(
     device: str,
     model_dtype_name: str,
     local_files_only: bool,
-    add_special_tokens: bool,
     bootstrap_samples: int,
     bootstrap_seed: int,
 ) -> Path:
@@ -201,6 +253,9 @@ def run_full_context_qa(
     # Batched decoder-only generation must read logits after the actual prompt,
     # not after right-padding tokens.
     tokenizer.padding_side = "left"
+    if not getattr(tokenizer, "chat_template", None):
+        raise RuntimeError("Qwen tokenizer has no chat template")
+    formatter = QwenChatPromptFormatter(tokenizer)
     choices: dict[str, dict[str, object]] = {}
     for probe_name, definition in probes.items():
         answers = [answer_text(value) for value in definition["classes"]]
@@ -208,6 +263,7 @@ def run_full_context_qa(
             "question": definition["question"],
             "classes": definition["classes"],
             "answer_texts": answers,
+            "first_token_id_variants": candidate_token_id_sets(tokenizer, answers),
         }
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -222,23 +278,30 @@ def run_full_context_qa(
         response_records: list[dict[str, object]] = []
         for split_offset, split in enumerate(splits):
             split_predictions: dict[str, Tensor] = {}
+            split_logit_predictions: dict[str, Tensor] = {}
             for probe_name, choice in choices.items():
-                predictions, raw_responses = generate_answers(
+                predictions, logit_predictions, raw_responses = generate_answers(
                     rows[split],
                     str(choice["question"]),
                     list(choice["answer_texts"]),
                     tokenizer,
+                    formatter,
                     model,
+                    list(choice["first_token_id_variants"]),
                     batch_size,
                     max_length,
                     max_new_tokens,
                     device,
-                    add_special_tokens,
                 )
                 split_predictions[probe_name] = predictions
+                split_logit_predictions[probe_name] = logit_predictions
                 target_labels = targets[split][probe_name]
-                for row, prediction, target, response in zip(
-                    rows[split], predictions.tolist(), target_labels.tolist(), raw_responses
+                for row, prediction, logit_prediction, target, response in zip(
+                    rows[split],
+                    predictions.tolist(),
+                    logit_predictions.tolist(),
+                    target_labels.tolist(),
+                    raw_responses,
                 ):
                     response_records.append(
                         {
@@ -252,9 +315,11 @@ def run_full_context_qa(
                             "allowed_answers": choice["answer_texts"],
                             "raw_response": response,
                             "predicted_class_index": prediction if prediction >= 0 else None,
+                            "allowed_logit_class_index": logit_prediction,
                             "target_class_index": target,
                             "valid_format": prediction >= 0,
                             "correct": prediction == target,
+                            "allowed_logit_correct": logit_prediction == target,
                         }
                     )
                 print(
@@ -295,6 +360,19 @@ def run_full_context_qa(
             }
             evaluations[split] = evaluation
 
+            logit_evaluation = condition_metrics(
+                rows[split], split_logit_predictions, targets[split], class_counts
+            )
+            logit_evaluation["group_bootstrap_95ci"] = group_bootstrap_intervals(
+                rows[split],
+                split_logit_predictions,
+                targets[split],
+                class_counts,
+                bootstrap_samples,
+                bootstrap_seed + 100 + split_offset,
+            )
+            evaluations[split]["allowed_answer_logits"] = logit_evaluation
+
         with (temporary / "responses.jsonl").open("w", encoding="utf-8") as handle:
             for record in response_records:
                 handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
@@ -305,10 +383,15 @@ def run_full_context_qa(
                 "task": "full situation plus fixed question",
                 "decision_rule": "strict first-word parse of greedy generated text",
                 "generation": True,
+                "chat_template_applied": True,
+                "enable_thinking": False,
                 "do_sample": False,
                 "num_beams": 1,
                 "max_new_tokens": max_new_tokens,
                 "prompt_template": PROMPT_TEMPLATE,
+                "secondary_control": (
+                    "highest first-step logit among one-token spellings of allowed answers"
+                ),
                 "confidence_intervals": (
                     "95% percentile bootstrap over abstract-layout groups"
                 ),
@@ -330,10 +413,11 @@ def run_full_context_qa(
             "tokenization": {
                 "padding_side": tokenizer.padding_side,
                 "pad_token_id": tokenizer.pad_token_id,
-                "add_special_tokens": add_special_tokens,
+                "add_special_tokens": False,
                 "max_length": max_length,
                 "truncation_policy": "fail if any prompt reaches max_length",
-                "chat_template_applied": False,
+                "chat_template_applied": True,
+                "enable_thinking": False,
             },
             "choices": choices,
             "dataset": {
@@ -393,11 +477,6 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Allow Hugging Face access; by default the pinned model must be cached.",
     )
-    parser.add_argument(
-        "--add-special-tokens",
-        action="store_true",
-        help="Add tokenizer special tokens. Default is raw completion formatting.",
-    )
     return parser.parse_args()
 
 
@@ -415,7 +494,6 @@ def main() -> None:
         device=args.device,
         model_dtype_name=args.model_dtype,
         local_files_only=not args.allow_download,
-        add_special_tokens=args.add_special_tokens,
         bootstrap_samples=args.bootstrap_samples,
         bootstrap_seed=args.bootstrap_seed,
     )

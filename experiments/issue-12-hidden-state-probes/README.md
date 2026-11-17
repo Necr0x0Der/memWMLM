@@ -209,14 +209,17 @@ report remains unchanged and should be retained as a separate result.
 `evaluate_full_context_qa.py` asks the frozen Qwen model each manifest question
 with the complete situation still in context. This stage does not train a
 probe. The prompt asks for exactly one allowed short answer (`Yes`/`No` or one
-person name), and the model produces text with deterministic greedy generation.
-Ground truth is used only after generation to compute accuracy.
+person name), is rendered through Qwen's chat template with thinking disabled,
+and uses deterministic greedy generation. Ground truth is used only after
+generation to compute accuracy. As a secondary diagnostic, the same generation
+step records which allowed answer has the highest first-token logit; this does
+not replace the generated-answer result.
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python \
   experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-chat-qwen3-1.7b \
   --splits validation,test \
   --device cuda \
   --model-dtype bfloat16 \
@@ -226,9 +229,9 @@ CUDA_VISIBLE_DEVICES=0 python \
 ```
 
 The output contains `report.json` and `responses.jsonl`. The latter preserves
-every raw model response, parsed class, target, and condition for audit. Parsing
-is intentionally strict: the first generated word must be one of the allowed
-answers; format violations are counted as incorrect and reported separately.
+every raw model response, parsed class, allowed-answer logit choice, target, and
+condition for audit. Parsing is intentionally strict: the first generated word
+must be one of the allowed answers; format violations are counted as incorrect.
 Metrics use the same per-question macro accuracy, joint exact-state accuracy,
 instruction/fact-order breakdowns, and group-bootstrap intervals as the probe
 reports.

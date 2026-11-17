@@ -24,29 +24,13 @@ from analyze_fact_order_transfer import run_fact_order_transfer  # noqa: E402
 from evaluate_full_context_qa import (  # noqa: E402
     answer_text,
     build_prompt,
-    candidate_token_id_sets,
     parse_splits,
     parse_short_answer,
-    predictions_from_allowed_logits,
 )
 
 
 def file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-class FakeAnswerTokenizer:
-    token_ids = {
-        "No": 2,
-        " No": 3,
-        "Yes": 5,
-        " Yes": 7,
-        "Mary": 11,
-        " Mary": 13,
-    }
-
-    def __call__(self, text: str, **_: object) -> dict[str, list[int]]:
-        return {"input_ids": [self.token_ids[text]]}
 
 
 def test_probe_bank_learns_multiple_fixed_questions() -> None:
@@ -94,30 +78,21 @@ def test_full_context_short_answer_prompt() -> None:
     )
     assert prompt == (
         "Mary is in room A.\n\nQuestion: Who is leftmost?\n"
-        "Answer with exactly one of: Mary, John, Bob.\nAnswer:"
+        "Return exactly one of the following lines and nothing else:\n"
+        "FINAL: Mary\nFINAL: John\nFINAL: Bob"
     )
 
 
 def test_full_context_short_answer_parser_is_strict() -> None:
+    assert parse_short_answer("FINAL: Yes", ["No", "Yes"]) == 1
+    assert parse_short_answer("reasoning\nFINAL: No", ["No", "Yes"]) == 0
+    assert parse_short_answer("FINAL: Yes\nFINAL: No", ["No", "Yes"]) == 0
+    assert parse_short_answer("Answer: **Yes**.", ["No", "Yes"]) == 1
     assert parse_short_answer(" Yes\n", ["No", "Yes"]) == 1
     assert parse_short_answer("Mary.", ["Mary", "John", "Bob"]) == 0
     assert parse_short_answer("The answer is Mary", ["Mary", "John", "Bob"]) is None
     assert parse_short_answer("", ["No", "Yes"]) is None
     assert parse_splits("validation,test") == ("validation", "test")
-
-
-def test_full_context_allowed_answer_logits_use_token_variants() -> None:
-    token_sets = candidate_token_id_sets(FakeAnswerTokenizer(), ["No", "Yes"])
-    assert token_sets == [[2, 3], [5, 7]]
-    logits = torch.zeros((2, 16))
-    logits[0, 7] = 4.0
-    logits[0, 2] = 1.0
-    logits[1, 3] = 3.0
-    logits[1, 5] = -1.0
-
-    predictions = predictions_from_allowed_logits(logits, token_sets)
-
-    assert predictions.tolist() == [1, 0]
 
 
 def test_group_shuffle_keeps_matched_variants_together() -> None:

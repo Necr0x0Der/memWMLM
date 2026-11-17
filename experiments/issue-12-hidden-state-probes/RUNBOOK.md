@@ -317,15 +317,15 @@ Interpret the matrix as follows:
 This control does not fit a probe. It gives frozen Qwen the complete situation
 and one fixed question through the standard Qwen chat template with thinking
 disabled, asks for exactly one allowed short answer, and uses greedy generation.
-It also records the highest-logit allowed answer as a secondary diagnostic.
-Replace `0` with the physical number of a free GPU. Use the distinct `-chat-`
-output path so an earlier raw-completion diagnostic is never overwritten:
+The required output marker is `FINAL: <answer>`; no answer is inferred from
+first-step logits. Replace `0` with the physical number of a free GPU. Use the
+distinct `-final-` output path so earlier diagnostics are never overwritten:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-chat-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b \
   --model Qwen/Qwen3-1.7B \
   --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
   --splits validation,test \
@@ -333,7 +333,7 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   --model-dtype bfloat16 \
   --batch-size 16 \
   --max-length 256 \
-  --max-new-tokens 8 \
+  --max-new-tokens 64 \
   --bootstrap-samples 2000 \
   --bootstrap-seed 12013
 ```
@@ -341,15 +341,15 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
 The command writes:
 
 ```text
-experiments/issue-12-hidden-state-probes/artifacts/full-context-chat-qwen3-1.7b/report.json
-experiments/issue-12-hidden-state-probes/artifacts/full-context-chat-qwen3-1.7b/responses.jsonl
+experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b/report.json
+experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b/responses.jsonl
 ```
 
 `responses.jsonl` is part of the result: preserve it so every generated answer
 and parser decision can be audited. Inspect headline test results with:
 
 ```bash
-.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/full-context-chat-qwen3-1.7b/report.json').read_text()); t=r['evaluation']['test']; print('generation overall',t['overall']); print('generation canonical',t['fact_order']['canonical']); print('generation shuffled',t['fact_order']['shuffled']); print('invalid',t['invalid_answers']); print('allowed logits',t['allowed_answer_logits']['overall'])"
+.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b/report.json').read_text()); t=r['evaluation']['test']; print('overall',t['overall']); print('canonical',t['fact_order']['canonical']); print('shuffled',t['fact_order']['shuffled']); print('invalid',t['invalid_answers'])"
 ```
 
 If full-context shuffled accuracy is high while shuffled hidden-state probes

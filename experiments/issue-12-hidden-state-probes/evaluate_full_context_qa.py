@@ -3,9 +3,9 @@
 
 For every fixed question, the model receives the complete situation and an
 instruction to answer with exactly one allowed short answer through Qwen's chat
-template with thinking disabled. Greedy generation is parsed strictly, while
-the first-step logits over allowed answers are recorded as a secondary control.
-No probe is trained; ground truth is used only to compute metrics.
+template with thinking disabled. Greedy generation is parsed from an explicit
+``FINAL: <answer>`` marker. No probe is trained; ground truth is used only to
+compute metrics.
 """
 
 from __future__ import annotations
@@ -42,11 +42,11 @@ from train_linear_probes import (
 )
 
 
-RESULT_SCHEMA_VERSION = "spatial-full-context-chat-generation-v2"
+RESULT_SCHEMA_VERSION = "spatial-full-context-final-answer-v3"
 DEFAULT_SPLITS = ("validation", "test")
 PROMPT_TEMPLATE = (
     "{situation}\n\nQuestion: {question}\n"
-    "Answer with exactly one of: {choices}.\nAnswer:"
+    "Return exactly one of the following lines and nothing else:\n{valid_responses}"
 )
 
 
@@ -70,57 +70,26 @@ def build_prompt(
     return PROMPT_TEMPLATE.format(
         situation=situation,
         question=question,
-        choices=", ".join(answers),
+        valid_responses="\n".join(f"FINAL: {answer}" for answer in answers),
     )
 
 
 def parse_short_answer(response: str, answers: Sequence[str]) -> int | None:
-    """Parse the first generated word; format violations remain invalid."""
-    match = re.match(r"\s*([A-Za-z]+)\b", response)
-    if match is None:
+    """Prefer the last FINAL marker; accept an unambiguous leading short answer."""
+    allowed = {answer.casefold(): index for index, answer in enumerate(answers)}
+    final_matches = re.findall(
+        r"(?im)^\s*(?:\*\*)?FINAL\s*:\s*(?:\*\*)?([A-Za-z]+)\b",
+        response,
+    )
+    if final_matches:
+        return allowed.get(final_matches[-1].casefold())
+    leading = re.match(
+        r"(?is)^\s*(?:Answer\s*:\s*)?(?:\*\*)?([A-Za-z]+)\b",
+        response,
+    )
+    if leading is None:
         return None
-    normalized = match.group(1).casefold()
-    matches = [index for index, answer in enumerate(answers) if answer.casefold() == normalized]
-    return matches[0] if len(matches) == 1 else None
-
-
-def candidate_token_id_sets(
-    tokenizer: object,
-    answers: Sequence[str],
-) -> list[list[int]]:
-    """Return one-token spellings of each allowed answer, with/without a space."""
-    result: list[list[int]] = []
-    for answer in answers:
-        ids: list[int] = []
-        for spelling in (answer, " " + answer):
-            encoded = tokenizer(spelling, add_special_tokens=False)["input_ids"]
-            if len(encoded) == 1 and int(encoded[0]) not in ids:
-                ids.append(int(encoded[0]))
-        if not ids:
-            raise ValueError(
-                f"Allowed answer {answer!r} has no one-token spelling; "
-                "first-step logit comparison is unavailable"
-            )
-        result.append(ids)
-    if any(set(first) & set(second) for i, first in enumerate(result) for second in result[i + 1 :]):
-        raise ValueError(f"Allowed answers have overlapping token IDs: {result}")
-    return result
-
-
-def predictions_from_allowed_logits(
-    logits: Tensor,
-    token_id_sets: Sequence[Sequence[int]],
-) -> Tensor:
-    """Choose the answer with the best first-step logit over its spellings."""
-    if logits.ndim != 2:
-        raise ValueError("logits must have shape [batch, vocabulary]")
-    class_scores: list[Tensor] = []
-    for token_ids in token_id_sets:
-        ids = torch.tensor(token_ids, dtype=torch.long, device=logits.device)
-        if ids.numel() == 0 or torch.any(ids < 0) or torch.any(ids >= logits.shape[1]):
-            raise ValueError("Candidate token ID is outside the model vocabulary")
-        class_scores.append(logits.index_select(1, ids).amax(dim=1))
-    return torch.stack(class_scores, dim=1).argmax(dim=1).cpu()
+    return allowed.get(leading.group(1).casefold())
 
 
 def generate_answers(
@@ -130,17 +99,15 @@ def generate_answers(
     tokenizer: object,
     formatter: object,
     model: object,
-    token_id_sets: Sequence[Sequence[int]],
     batch_size: int,
     max_length: int,
     max_new_tokens: int,
     device: str,
-) -> tuple[Tensor, Tensor, list[str]]:
+) -> tuple[Tensor, list[str]]:
     if batch_size <= 0 or max_length <= 0 or max_new_tokens <= 0:
         raise ValueError("batch_size, max_length, and max_new_tokens must be positive")
 
     predictions: list[Tensor] = []
-    logit_predictions: list[Tensor] = []
     responses: list[str] = []
     for start in range(0, len(rows), batch_size):
         batch = rows[start : start + batch_size]
@@ -172,15 +139,8 @@ def generate_answers(
                 num_beams=1,
                 max_new_tokens=max_new_tokens,
                 pad_token_id=tokenizer.pad_token_id,
-                return_dict_in_generate=True,
-                output_scores=True,
             )
-        if not generated.scores:
-            raise RuntimeError("Generation did not return first-step logits")
-        logit_predictions.append(
-            predictions_from_allowed_logits(generated.scores[0], token_id_sets)
-        )
-        continuation = generated.sequences[:, model_inputs["input_ids"].shape[1] :]
+        continuation = generated[:, model_inputs["input_ids"].shape[1] :]
         batch_responses = tokenizer.batch_decode(
             continuation,
             skip_special_tokens=True,
@@ -197,7 +157,7 @@ def generate_answers(
             )
         )
         del generated, continuation
-    return torch.cat(predictions), torch.cat(logit_predictions), responses
+    return torch.cat(predictions), responses
 
 
 def parse_splits(spec: str) -> tuple[str, ...]:
@@ -263,7 +223,6 @@ def run_full_context_qa(
             "question": definition["question"],
             "classes": definition["classes"],
             "answer_texts": answers,
-            "first_token_id_variants": candidate_token_id_sets(tokenizer, answers),
         }
 
     output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -278,28 +237,24 @@ def run_full_context_qa(
         response_records: list[dict[str, object]] = []
         for split_offset, split in enumerate(splits):
             split_predictions: dict[str, Tensor] = {}
-            split_logit_predictions: dict[str, Tensor] = {}
             for probe_name, choice in choices.items():
-                predictions, logit_predictions, raw_responses = generate_answers(
+                predictions, raw_responses = generate_answers(
                     rows[split],
                     str(choice["question"]),
                     list(choice["answer_texts"]),
                     tokenizer,
                     formatter,
                     model,
-                    list(choice["first_token_id_variants"]),
                     batch_size,
                     max_length,
                     max_new_tokens,
                     device,
                 )
                 split_predictions[probe_name] = predictions
-                split_logit_predictions[probe_name] = logit_predictions
                 target_labels = targets[split][probe_name]
-                for row, prediction, logit_prediction, target, response in zip(
+                for row, prediction, target, response in zip(
                     rows[split],
                     predictions.tolist(),
-                    logit_predictions.tolist(),
                     target_labels.tolist(),
                     raw_responses,
                 ):
@@ -315,11 +270,9 @@ def run_full_context_qa(
                             "allowed_answers": choice["answer_texts"],
                             "raw_response": response,
                             "predicted_class_index": prediction if prediction >= 0 else None,
-                            "allowed_logit_class_index": logit_prediction,
                             "target_class_index": target,
                             "valid_format": prediction >= 0,
                             "correct": prediction == target,
-                            "allowed_logit_correct": logit_prediction == target,
                         }
                     )
                 print(
@@ -360,19 +313,6 @@ def run_full_context_qa(
             }
             evaluations[split] = evaluation
 
-            logit_evaluation = condition_metrics(
-                rows[split], split_logit_predictions, targets[split], class_counts
-            )
-            logit_evaluation["group_bootstrap_95ci"] = group_bootstrap_intervals(
-                rows[split],
-                split_logit_predictions,
-                targets[split],
-                class_counts,
-                bootstrap_samples,
-                bootstrap_seed + 100 + split_offset,
-            )
-            evaluations[split]["allowed_answer_logits"] = logit_evaluation
-
         with (temporary / "responses.jsonl").open("w", encoding="utf-8") as handle:
             for record in response_records:
                 handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
@@ -381,7 +321,9 @@ def run_full_context_qa(
             "schema_version": RESULT_SCHEMA_VERSION,
             "protocol": {
                 "task": "full situation plus fixed question",
-                "decision_rule": "strict first-word parse of greedy generated text",
+                "decision_rule": (
+                    "last FINAL: <answer> marker, with a leading short-answer fallback"
+                ),
                 "generation": True,
                 "chat_template_applied": True,
                 "enable_thinking": False,
@@ -389,9 +331,6 @@ def run_full_context_qa(
                 "num_beams": 1,
                 "max_new_tokens": max_new_tokens,
                 "prompt_template": PROMPT_TEMPLATE,
-                "secondary_control": (
-                    "highest first-step logit among one-token spellings of allowed answers"
-                ),
                 "confidence_intervals": (
                     "95% percentile bootstrap over abstract-layout groups"
                 ),
@@ -463,7 +402,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max-length", type=int, default=256)
-    parser.add_argument("--max-new-tokens", type=int, default=8)
+    parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--device", default="cuda")
     parser.add_argument(
         "--model-dtype",

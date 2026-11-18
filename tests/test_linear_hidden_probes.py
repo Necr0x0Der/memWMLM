@@ -129,6 +129,9 @@ def test_feature_loader_joins_shards_by_id(tmp_path: Path) -> None:
             "layer_indices": torch.tensor([4, 8], dtype=torch.int16),
             "last_token": torch.tensor([[[2.0], [20.0]], [[1.0], [10.0]]]),
             "mean_pool": torch.tensor([[[3.0], [30.0]], [[1.5], [15.0]]]),
+            "sentence_end_mean": torch.tensor(
+                [[[4.0], [40.0]], [[2.0], [20.0]]]
+            ),
         },
         shard_path,
     )
@@ -145,6 +148,7 @@ def test_feature_loader_joins_shards_by_id(tmp_path: Path) -> None:
     assert layers == (4, 8)
     assert features["last_token"][:, 0, 0].tolist() == [1.0, 2.0]
     assert features["mean_pool"][:, 1, 0].tolist() == [15.0, 30.0]
+    assert features["sentence_end_mean"][:, 1, 0].tolist() == [20.0, 40.0]
 
 
 def test_group_bootstrap_treats_matched_rows_as_one_unit() -> None:
@@ -204,6 +208,7 @@ def test_end_to_end_selection_writes_locked_report(tmp_path: Path) -> None:
                 "layer_indices": torch.tensor([4], dtype=torch.int16),
                 "last_token": tensor.flip(0),
                 "mean_pool": tensor.flip(0) * 2,
+                "sentence_end_mean": tensor.flip(0) * 3,
             },
             shard_path,
         )
@@ -290,6 +295,7 @@ def test_fact_order_transfer_separates_within_and_cross_condition_readouts(
                 "layer_indices": torch.tensor([4], dtype=torch.int16),
                 "last_token": tensor,
                 "mean_pool": tensor * 2,
+                "sentence_end_mean": tensor * 3,
             },
             shard_path,
         )

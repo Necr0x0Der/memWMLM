@@ -88,7 +88,7 @@ head is not executed and no next-token logits are computed.
 ```bash
 python experiments/issue-12-hidden-state-probes/extract_hidden_features.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
   --layers 4,8,12,16,20,24,last \
   --device cuda \
   --model-dtype bfloat16 \
@@ -105,18 +105,23 @@ For each shard, the extractor saves:
 
 - `last_token`: hidden state at the last non-padding situation token;
 - `mean_pool`: arithmetic mean over all non-padding input tokens;
-- `ids`, `token_counts`, and `layer_indices` needed to join features to labels.
+- `sentence_end_mean`: arithmetic mean of the hidden vectors at the final
+  tokenizer token of each of the six fact lines, excluding the instruction;
+- `ids`, `token_counts`, `sentence_end_counts`, and `layer_indices` needed to
+  join and audit features.
 
-Both feature tensors have shape `[examples, selected_layers, 2048]`.  The
+All three feature tensors have shape `[examples, selected_layers, 2048]`. The
 extractor refuses silent truncation, verifies dataset hashes against its
 manifest, uses the immutable model revision already established by issue #5,
 and writes model/tokenizer/pooling provenance to a feature manifest.
 
-`last_token` and `mean_pool` answer slightly different questions.  The former
+The three pooling rules answer slightly different questions. `last_token`
 tests whether the causal stream has accumulated state by the end of the
-situation.  The latter tests whether state is linearly available across the
-token trace.  Mean pooling is therefore a useful comparison, but success there
-is weaker evidence for a compact prepared state than success at the last token.
+situation. `mean_pool` tests whether state is linearly available across the
+complete token trace. `sentence_end_mean` gives each completed fact one causal
+summary vector and averages those six vectors, rather than weighting long facts
+by their token count. Both mean variants are weaker evidence for a compact
+prepared state than success at the last token.
 
 ## Intended probe protocol
 
@@ -153,8 +158,8 @@ evaluated only after selection.
 ```bash
 python experiments/issue-12-hidden-state-probes/train_linear_probes.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/probes-qwen3-1.7b \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/probes-sentence-end-qwen3-1.7b \
   --l2-values 0,1e-5,1e-4,1e-3 \
   --device cpu
 ```
@@ -192,8 +197,8 @@ is encoded in a condition-specific linear coordinate system.
 ```bash
 python experiments/issue-12-hidden-state-probes/analyze_fact_order_transfer.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-qwen3-1.7b \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-sentence-end-qwen3-1.7b \
   --l2-values 0,1e-5,1e-4,1e-3 \
   --device cpu
 ```

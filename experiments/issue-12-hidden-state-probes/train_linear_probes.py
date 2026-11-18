@@ -26,7 +26,7 @@ from torch import Tensor, nn
 
 
 SPLITS = ("train", "validation", "test")
-POOLINGS = ("last_token", "mean_pool")
+POOLINGS = ("last_token", "mean_pool", "sentence_end_mean")
 RESULT_SCHEMA_VERSION = "spatial-linear-probes-v1"
 
 

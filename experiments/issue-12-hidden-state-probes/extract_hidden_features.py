@@ -2,8 +2,9 @@
 """Extract frozen Qwen hidden features for the issue #12 probe dataset.
 
 This script never generates text and never supplies probe targets to the model.
-It encodes the raw situation-only ``text`` field, then stores last-token and
-attention-mask-aware mean-pooled features from selected transformer layers.
+It encodes the raw situation-only ``text`` field, then stores last-token,
+attention-mask-aware mean-pooled, and fact-sentence-end-pooled features from
+selected transformer layers.
 """
 
 from __future__ import annotations
@@ -11,12 +12,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Iterator, Sequence
+from typing import Iterator, Mapping, Sequence
 
 import torch
 from torch import Tensor
@@ -27,7 +29,8 @@ DEFAULT_MODEL = "Qwen/Qwen3-1.7B"
 DEFAULT_REVISION = "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
 DEFAULT_LAYERS = "4,8,12,16,20,24,last"
 SPLITS = ("train", "validation", "test")
-FEATURE_SCHEMA_VERSION = "qwen-hidden-probe-features-v1"
+FEATURE_SCHEMA_VERSION = "qwen-hidden-probe-features-v2"
+FACTS_PER_EXAMPLE = 6
 
 
 def sha256(path: Path) -> str:
@@ -144,6 +147,85 @@ def pool_selected_hidden_states(
     return torch.stack(last_features, dim=1), torch.stack(mean_features, dim=1)
 
 
+def fact_sentence_end_characters(record: Mapping[str, object]) -> tuple[int, ...]:
+    """Return final non-whitespace character offsets for situation fact lines."""
+    text = record.get("text")
+    if not isinstance(text, str) or not text:
+        raise ValueError("Expected a non-empty text field")
+    line_spans: list[tuple[int, int]] = []
+    for match in re.finditer(r"[^\r\n]+", text):
+        stripped = match.group().rstrip()
+        if stripped:
+            line_spans.append((match.start(), match.start() + len(stripped)))
+    instruction_id = record.get("instruction_id")
+    if instruction_id is not None:
+        if not isinstance(instruction_id, str):
+            raise ValueError("instruction_id must be a string when present")
+        if instruction_id != "none":
+            if len(line_spans) <= 1:
+                raise ValueError("Instruction example contains no fact lines")
+            line_spans = line_spans[1:]
+    if not line_spans:
+        raise ValueError("Example contains no fact lines")
+    return tuple(end - 1 for _, end in line_spans)
+
+
+def sentence_end_token_mask(
+    records: Sequence[Mapping[str, object]],
+    offset_mapping: Tensor,
+    attention_mask: Tensor,
+) -> Tensor:
+    """Map fact-line terminal characters to their tokenizer positions."""
+    if offset_mapping.ndim != 3 or offset_mapping.shape[-1] != 2:
+        raise ValueError("offset_mapping must have shape [batch, sequence, 2]")
+    if offset_mapping.shape[:2] != attention_mask.shape:
+        raise ValueError("offset_mapping and attention_mask shapes do not match")
+    if offset_mapping.shape[0] != len(records):
+        raise ValueError("offset_mapping batch does not match records")
+    result = torch.zeros_like(attention_mask)
+    for batch_index, record in enumerate(records):
+        starts = offset_mapping[batch_index, :, 0]
+        ends = offset_mapping[batch_index, :, 1]
+        valid = attention_mask[batch_index].to(torch.bool)
+        for character in fact_sentence_end_characters(record):
+            matches = torch.nonzero(
+                valid & (starts <= character) & (ends > character), as_tuple=False
+            ).flatten()
+            if matches.numel() != 1:
+                raise ValueError(
+                    f"Expected one token for sentence-end character {character}, "
+                    f"found {matches.numel()}"
+                )
+            result[batch_index, int(matches.item())] = 1
+    return result
+
+
+def pool_masked_hidden_states(
+    hidden_states: Sequence[Tensor],
+    pooling_mask: Tensor,
+    layer_indices: Sequence[int],
+) -> Tensor:
+    """Return [batch, layer, hidden] means over an explicit token mask."""
+    if pooling_mask.ndim != 2:
+        raise ValueError("pooling_mask must have shape [batch, sequence]")
+    token_counts = pooling_mask.sum(dim=1)
+    if torch.any(token_counts <= 0):
+        raise ValueError("Cannot pool an empty token selection")
+    mask = pooling_mask.unsqueeze(-1)
+    pooled: list[Tensor] = []
+    for layer in layer_indices:
+        if layer >= len(hidden_states):
+            raise ValueError(
+                f"Requested layer {layer}, but model returned {len(hidden_states)} hidden-state tensors"
+            )
+        states = hidden_states[layer]
+        if states.shape[:2] != pooling_mask.shape:
+            raise ValueError("Hidden-state and pooling-mask shapes do not match")
+        summed = (states * mask.to(dtype=states.dtype)).sum(dim=1)
+        pooled.append(summed / token_counts.unsqueeze(-1).to(dtype=states.dtype))
+    return torch.stack(pooled, dim=1)
+
+
 def extract_split(
     dataset_path: Path,
     output_dir: Path,
@@ -171,8 +253,25 @@ def extract_split(
             truncation=True,
             max_length=max_length,
             add_special_tokens=add_special_tokens,
+            return_offsets_mapping=True,
             return_tensors="pt",
         )
+        offset_mapping = encoded.pop("offset_mapping", None)
+        if not isinstance(offset_mapping, Tensor):
+            raise ValueError("Fast tokenizer did not return tensor offset mappings")
+        if "attention_mask" not in encoded:
+            raise ValueError("Tokenizer output does not contain attention_mask")
+        sentence_end_mask = sentence_end_token_mask(
+            records,
+            offset_mapping,
+            encoded["attention_mask"],
+        )
+        for record, count in zip(records, sentence_end_mask.sum(dim=1).tolist()):
+            if "instruction_id" in record and count != FACTS_PER_EXAMPLE:
+                raise ValueError(
+                    f"Expected {FACTS_PER_EXAMPLE} fact sentence ends for "
+                    f"{record.get('id')!r}, found {count}"
+                )
         model_inputs = {name: tensor.to(device) for name, tensor in encoded.items()}
         if "attention_mask" not in model_inputs:
             raise ValueError("Tokenizer output does not contain attention_mask")
@@ -196,12 +295,19 @@ def extract_split(
             model_inputs["attention_mask"],
             layer_indices,
         )
+        sentence_end_mean = pool_masked_hidden_states(
+            outputs.hidden_states,
+            sentence_end_mask.to(device),
+            layer_indices,
+        )
         payload = {
             "ids": [str(record["id"]) for record in records],
             "layer_indices": torch.tensor(layer_indices, dtype=torch.int16),
             "token_counts": original_token_counts.to(device="cpu", dtype=torch.int32),
+            "sentence_end_counts": sentence_end_mask.sum(dim=1).to(dtype=torch.int16),
             "last_token": last_token.to(device="cpu", dtype=output_dtype),
             "mean_pool": mean_pool.to(device="cpu", dtype=output_dtype),
+            "sentence_end_mean": sentence_end_mean.to(device="cpu", dtype=output_dtype),
         }
         shard_path = output_dir / f"shard-{shard_index:05d}.pt"
         torch.save(payload, shard_path)
@@ -223,7 +329,7 @@ def extract_split(
             ),
             flush=True,
         )
-        del outputs, last_token, mean_pool, payload
+        del outputs, last_token, mean_pool, sentence_end_mean, payload
     return {"examples": example_count, "shards": shard_records}
 
 
@@ -373,6 +479,10 @@ def build_features(
                 "pooling": {
                     "last_token": "last token selected by attention_mask",
                     "mean_pool": "arithmetic mean over all non-padding input tokens",
+                    "sentence_end_mean": (
+                        "arithmetic mean over the hidden state at the final token of each "
+                        "of the six situation fact lines; an instruction line is excluded"
+                    ),
                 },
                 "storage_dtype": output_dtype_name,
             },

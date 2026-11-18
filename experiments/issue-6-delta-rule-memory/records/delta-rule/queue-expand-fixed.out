@@ -1,0 +1,93 @@
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:  59%|█████▉    | 185/311 [00:00<00:00, 1582.99it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 2601.58it/s]
+{"wrote": "memory", "passages": 4342, "seconds": 54.0}
+{"wrote": "counterfactual", "passages": 4342, "seconds": 55.3}
+{"run": "memory-train_seen-g0.1", "n": 512, "em": 8.98}
+{"run": "memory-train_seen-g0.3", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g1.0", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g3.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g0.1", "n": 512, "em": 10.74}
+{"run": "memory-train_heldout-g0.3", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g1.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g3.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_in-g0.1", "n": 512, "em": 8.4}
+{"run": "counterfactual-dev_in-g0.1", "n": 512, "em": 7.23, "cf_follow": 0.0}
+{"run": "memory-dev_in-g0.3", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g0.3", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g1.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g1.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g3.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g3.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_out-g0.1", "n": 512, "em": 8.98}
+{"run": "memory-dev_out-g0.3", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g1.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g3.0", "n": 512, "em": 0.0}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 13705.87it/s]
+{"wrote": "memory", "passages": 4342, "seconds": 52.6}
+{"wrote": "counterfactual", "passages": 4342, "seconds": 56.2}
+{"run": "memory-train_seen-g2.0", "n": 512, "em": 16.41}
+{"run": "memory-train_seen-g8.0", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g32.0", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g128.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g2.0", "n": 512, "em": 18.36}
+{"run": "memory-train_heldout-g8.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g32.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g128.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_in-g2.0", "n": 512, "em": 14.65}
+{"run": "counterfactual-dev_in-g2.0", "n": 512, "em": 14.84, "cf_follow": 0.0}
+{"run": "memory-dev_in-g8.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g8.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g32.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g32.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g128.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g128.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_out-g2.0", "n": 512, "em": 13.67}
+{"run": "memory-dev_out-g8.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g32.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g128.0", "n": 512, "em": 0.0}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights:  85%|████████▌ | 340/398 [00:00<00:00, 3399.17it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 3704.82it/s]
+{"wrote": "memory", "passages": 4342, "seconds": 141.3}
+{"wrote": "counterfactual", "passages": 4342, "seconds": 133.1}
+{"run": "memory-train_seen-g0.1", "n": 512, "em": 36.33}
+{"run": "memory-train_seen-g0.3", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g1.0", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g3.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g0.1", "n": 512, "em": 32.62}
+{"run": "memory-train_heldout-g0.3", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g1.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g3.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_in-g0.1", "n": 512, "em": 29.88}
+{"run": "counterfactual-dev_in-g0.1", "n": 512, "em": 30.08, "cf_follow": 0.0}
+{"run": "memory-dev_in-g0.3", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g0.3", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g1.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g1.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g3.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g3.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_out-g0.1", "n": 512, "em": 26.95}
+{"run": "memory-dev_out-g0.3", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g1.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g3.0", "n": 512, "em": 0.0}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 4268.36it/s]
+{"wrote": "memory", "passages": 4342, "seconds": 102.3}
+{"wrote": "counterfactual", "passages": 4342, "seconds": 103.8}
+{"run": "memory-train_seen-g2.0", "n": 512, "em": 37.11}
+{"run": "memory-train_seen-g8.0", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g32.0", "n": 512, "em": 0.0}
+{"run": "memory-train_seen-g128.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g2.0", "n": 512, "em": 37.11}
+{"run": "memory-train_heldout-g8.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g32.0", "n": 512, "em": 0.0}
+{"run": "memory-train_heldout-g128.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_in-g2.0", "n": 512, "em": 31.84}
+{"run": "counterfactual-dev_in-g2.0", "n": 512, "em": 31.64, "cf_follow": 0.0}
+{"run": "memory-dev_in-g8.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g8.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g32.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g32.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_in-g128.0", "n": 512, "em": 0.0}
+{"run": "counterfactual-dev_in-g128.0", "n": 512, "em": 0.0, "cf_follow": 0.0}
+{"run": "memory-dev_out-g2.0", "n": 512, "em": 28.71}
+{"run": "memory-dev_out-g8.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g32.0", "n": 512, "em": 0.0}
+{"run": "memory-dev_out-g128.0", "n": 512, "em": 0.0}
+EXPAND-FIXED QUEUE DONE

@@ -1,0 +1,29 @@
+{
+  "selection_rule": "first_answer_sentence_question_independent_v1+cf_all_aliases_v2",
+  "seed": 20261111,
+  "min_words": 6,
+  "max_words": 64,
+  "ladder": [
+    1,
+    4,
+    16,
+    64,
+    256,
+    1024
+  ],
+  "eval_size": 1024,
+  "calibration_size": 1024,
+  "dev_without_passage_among_drawn": 80,
+  "train_without_passage_among_drawn": 20,
+  "dev_dropped_for_alias_leakage_among_overdraw": 413,
+  "counterfactual_valid": 1024,
+  "sources": {
+    "artifacts/triviaqa/triviaqa-rc/qa/wikipedia-train.json": "05752644037ac6530ee627d3c03920bd3171cd5325380a9b1d73662af20ab635",
+    "artifacts/triviaqa/triviaqa-rc/qa/wikipedia-dev.json": "50657773739c723846bb7538c51ea41f7c8d0d8b68d029e95a03dd00541effdf"
+  },
+  "outputs": {
+    "eval.jsonl": "72940f0a9de33ebdd9880f6f428694f225a29a8e5ca5e3638370893110d7962f",
+    "calibration.jsonl": "1d00ee704fa9ef6e3ba9db50145f5ccf0a23b2194a52acf74e517afe348997fd",
+    "banks.json": "0f4361198dd2b2e05a4b00ca176ce01bb605260db4b26e7232e7d9d67c8e3438"
+  }
+}

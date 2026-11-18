@@ -1,0 +1,30 @@
+{
+  "N": 4,
+  "banks_manifest_sha256": "1941f2204fca6528abbcffa9af47bbaeb514c190885db7436bdcc2c60252769c",
+  "condition": "rag_bm25@1",
+  "do_sample": false,
+  "dtype": "bfloat16",
+  "enable_thinking": false,
+  "limit": null,
+  "max_new_tokens": 32,
+  "memory_settings": {
+    "alpha": 1.0,
+    "beta": 1.0,
+    "center_keys": false,
+    "gate": 1.0,
+    "key_space": "pre_rope_k_norm_l2",
+    "layers": "all",
+    "rule": "delta",
+    "skip_first_token": true
+  },
+  "model": "Qwen/Qwen3-1.7B",
+  "prompt_versions": {
+    "closed": "triviaqa_short_answer_v1",
+    "context": "triviaqa_short_answer_context_v1"
+  },
+  "repository_commit": "39f76ccc55d09d076be775a5ca817a8e94eae72e",
+  "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "split": "eval",
+  "torch": "2.15.0+cu132",
+  "working_tree_dirty": true
+}

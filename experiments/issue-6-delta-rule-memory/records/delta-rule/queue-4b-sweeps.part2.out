@@ -1,0 +1,37 @@
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 6188.40it/s]
+experiments/issue-6-delta-rule-memory/train_v2.py:265: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  "beta_mean_bias": float(interface.w_b.bias), "examples": list(zip(val_answers[:4], preds[:4]))}
+{"step": 0, "val_em": 0.78, "beta_mean_bias": 0.0, "examples": [["McCarty", "Brennan Centrella"], ["Marine", "side"], ["Madonna's", "the band"], ["Big Ten", "state"]], "gap_real_N64": 6.496, "gap_wrong_N64": 6.496, "gap_real_N1024": 5.554, "gap_wrong_N1024": 5.554, "val_closed_book_em": 0.78}
+Traceback (most recent call last):
+  File "experiments/issue-6-delta-rule-memory/train_v2.py", line 336, in <module>
+    main()
+    ~~~~^^
+  File "experiments/issue-6-delta-rule-memory/train_v2.py", line 304, in main
+    part.backward(retain_graph=m + size < len(queries))
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/_tensor.py", line 623, in backward
+    torch.autograd.backward(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, gradient, retain_graph, create_graph, inputs=inputs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File ".venv/lib/python3.13/site-packages/torch/autograd/__init__.py", line 395, in backward
+    _engine_run_backward(
+    ~~~~~~~~~~~~~~~~~~~~^
+        tensors,
+        ^^^^^^^^
+    ...<5 lines>...
+        accumulate_grad=True,
+        ^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File ".venv/lib/python3.13/site-packages/torch/autograd/graph.py", line 1113, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        t_outputs, *args, **kwargs
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )  # Calls into the C++ engine to run the backward pass
+    ^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1018.00 MiB. GPU 0 has a total capacity of 23.42 GiB of which 999.25 MiB is free. Including non-PyTorch memory, this process has 22.41 GiB memory in use. Of the allocated memory 21.92 GiB is allocated by PyTorch, and 65.52 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

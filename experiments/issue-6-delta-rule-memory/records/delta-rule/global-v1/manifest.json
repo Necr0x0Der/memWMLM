@@ -1,0 +1,22 @@
+{
+  "rule": "global_v1: calibration + extra train (alias-disjoint from eval) + even eval half; shuffled write order",
+  "banks_manifest_sha256": "1941f2204fca6528abbcffa9af47bbaeb514c190885db7436bdcc2c60252769c",
+  "selection": "overlap",
+  "bank_seed": 20261111,
+  "seed": 20261113,
+  "extra_requested": 3072,
+  "extra_dropped_for_eval_alias_leakage": 266,
+  "train_without_passage_among_drawn": 84,
+  "groups": {
+    "train_seen": 512,
+    "train_other": 2806,
+    "train_heldout": 512,
+    "dev_in": 512,
+    "dev_out": 512
+  },
+  "corpus_passages": 4342,
+  "outputs": {
+    "questions.jsonl": "99aa5de0c474757b5dba8128ac7892aacffe82ae539b98537cef5ae3a6e612f8",
+    "corpus.jsonl": "67e42a755d2b77ae5dd2a21be70cf15ac4e413628acbaf6564e123253dc38a50"
+  }
+}

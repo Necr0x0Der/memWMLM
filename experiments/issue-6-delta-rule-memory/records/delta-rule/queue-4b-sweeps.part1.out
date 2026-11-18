@@ -1,0 +1,276 @@
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 4288.70it/s]
+experiments/issue-6-delta-rule-memory/train_v2.py:265: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  "beta_mean_bias": float(interface.w_b.bias), "examples": list(zip(val_answers[:4], preds[:4]))}
+{"step": 0, "val_em": 0.78, "beta_mean_bias": 0.0, "examples": [["McCarty", "Brennan Centrella"], ["Marine", "side"], ["Madonna's", "the band"], ["Big Ten", "state"]], "gap_real_N64": 6.496, "gap_wrong_N64": 6.496, "gap_real_N1024": 5.554, "gap_wrong_N1024": 5.554, "val_closed_book_em": 0.78}
+{"step": 25, "loss": 4.798, "N": 512, "lr": 7.79699324133882e-05, "seconds": 48.1}
+{"step": 50, "loss": 3.2753, "N": 1024, "lr": 0.0001527641760305843, "seconds": 76.3}
+{"step": 75, "loss": 3.191, "N": 1024, "lr": 0.0002272098040928616, "seconds": 101.5}
+{"step": 100, "loss": 3.1356, "N": 512, "lr": 0.00029815325108927063, "seconds": 126.2}
+{"step": 125, "loss": 3.0246, "N": 512, "lr": 0.00029711779206048454, "seconds": 153.0}
+{"step": 150, "loss": 2.9242, "N": 1024, "lr": 0.0002958554880596515, "seconds": 178.4}
+{"step": 175, "loss": 3.0733, "N": 2048, "lr": 0.000294368285468047, "seconds": 205.0}
+{"step": 200, "loss": 2.9574, "N": 1024, "lr": 0.00029265847744427303, "seconds": 233.9}
+{"step": 225, "loss": 3.0136, "N": 2048, "lr": 0.0002907287003883726, "seconds": 266.2}
+{"step": 250, "loss": 3.0136, "N": 512, "lr": 0.000288581929876693, "seconds": 297.6}
+{"step": 250, "val_em": 2.73, "beta_mean_bias": -0.009855291806161404, "examples": [["McCarty", "Brennan"], ["Marine", "Squad"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.042, "gap_wrong_N64": 3.04, "gap_real_N1024": 2.526, "gap_wrong_N1024": 2.533}
+{"step": 275, "loss": 2.9998, "N": 1024, "lr": 0.0002862214760737622, "seconds": 328.8}
+{"step": 300, "loss": 2.9398, "N": 512, "lr": 0.00028365097862825513, "seconds": 358.3}
+{"step": 325, "loss": 2.8771, "N": 1024, "lr": 0.0002808744010609196, "seconds": 388.6}
+{"step": 350, "loss": 2.9043, "N": 512, "lr": 0.0002778960246531138, "seconds": 419.5}
+{"step": 375, "loss": 2.7434, "N": 1024, "lr": 0.0002747204418453818, "seconds": 452.4}
+{"step": 400, "loss": 2.9509, "N": 512, "lr": 0.0002713525491562421, "seconds": 484.2}
+{"step": 425, "loss": 2.9077, "N": 512, "lr": 0.0002677975396321117, "seconds": 519.0}
+{"step": 450, "loss": 2.8692, "N": 512, "lr": 0.00026406089484000466, "seconds": 547.0}
+{"step": 475, "loss": 2.8725, "N": 1024, "lr": 0.0002601483764153528, "seconds": 579.2}
+{"step": 500, "loss": 2.7832, "N": 512, "lr": 0.00025606601717798207, "seconds": 612.8}
+{"step": 500, "val_em": 3.91, "beta_mean_bias": -0.014441901817917824, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "The Weeknd's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.704, "gap_wrong_N64": 3.68, "gap_real_N1024": 2.231, "gap_wrong_N1024": 2.226}
+{"step": 525, "loss": 2.8686, "N": 2048, "lr": 0.0002518201118299413, "seconds": 651.2}
+{"step": 550, "loss": 2.8769, "N": 1024, "lr": 0.00024741720724952754, "seconds": 683.5}
+{"step": 575, "loss": 2.7785, "N": 1024, "lr": 0.00024286409239647507, "seconds": 714.6}
+{"step": 600, "loss": 2.8652, "N": 1024, "lr": 0.00023816778784387094, "seconds": 747.7}
+{"step": 625, "loss": 2.8532, "N": 2048, "lr": 0.0002333355349529403, "seconds": 778.8}
+{"step": 650, "loss": 2.7331, "N": 1024, "lr": 0.0002283747847073923, "seconds": 809.1}
+{"step": 675, "loss": 2.9377, "N": 2048, "lr": 0.00022329318622454325, "seconds": 843.7}
+{"step": 700, "loss": 2.7505, "N": 1024, "lr": 0.00021809857496093199, "seconds": 878.0}
+{"step": 725, "loss": 2.8029, "N": 512, "lr": 0.0002127989606306142, "seconds": 910.4}
+{"step": 750, "loss": 2.8002, "N": 512, "lr": 0.00020740251485476345, "seconds": 941.8}
+{"step": 750, "val_em": 4.3, "beta_mean_bias": -0.01417212001979351, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "The Weeknd's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.391, "gap_wrong_N64": 3.335, "gap_real_N1024": 2.25, "gap_wrong_N1024": 2.251}
+{"step": 775, "loss": 2.845, "N": 1024, "lr": 0.00020191755856162393, "seconds": 980.2}
+{"step": 800, "loss": 2.7105, "N": 512, "lr": 0.0001963525491562421, "seconds": 1010.7}
+{"step": 825, "loss": 2.7317, "N": 1024, "lr": 0.00019071606747976113, "seconds": 1043.1}
+{"step": 850, "loss": 2.7477, "N": 512, "lr": 0.0001850168045783858, "seconds": 1070.7}
+{"step": 875, "loss": 2.7181, "N": 512, "lr": 0.00017926354830241924, "seconds": 1101.2}
+{"step": 900, "loss": 2.7301, "N": 2048, "lr": 0.00017346516975603462, "seconds": 1139.7}
+{"step": 925, "loss": 2.8576, "N": 1024, "lr": 0.00016763060961867566, "seconds": 1168.3}
+{"step": 950, "loss": 2.7556, "N": 1024, "lr": 0.00016176886435917675, "seconds": 1198.1}
+{"step": 975, "loss": 2.7614, "N": 512, "lr": 0.0001558889723638603, "seconds": 1229.1}
+{"step": 1000, "loss": 2.7513, "N": 1024, "lr": 0.00015, "seconds": 1259.7}
+{"step": 1000, "val_em": 4.3, "beta_mean_bias": -0.01343656424432993, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.216, "gap_wrong_N64": 3.195, "gap_real_N1024": 2.173, "gap_wrong_N1024": 2.173}
+{"step": 1025, "loss": 2.6783, "N": 1024, "lr": 0.0001441110276361397, "seconds": 1299.0}
+{"step": 1050, "loss": 2.7715, "N": 1024, "lr": 0.00013823113564082325, "seconds": 1326.7}
+{"step": 1075, "loss": 2.763, "N": 2048, "lr": 0.00013236939038132435, "seconds": 1358.9}
+{"step": 1100, "loss": 2.6934, "N": 1024, "lr": 0.00012653483024396535, "seconds": 1388.4}
+{"step": 1125, "loss": 2.6919, "N": 512, "lr": 0.00012073645169758076, "seconds": 1417.6}
+{"step": 1150, "loss": 2.8301, "N": 1024, "lr": 0.0001149831954216142, "seconds": 1446.1}
+{"step": 1175, "loss": 2.7428, "N": 2048, "lr": 0.00010928393252023886, "seconds": 1478.5}
+{"step": 1200, "loss": 2.7587, "N": 1024, "lr": 0.0001036474508437579, "seconds": 1509.1}
+{"step": 1225, "loss": 2.5817, "N": 512, "lr": 9.808244143837605e-05, "seconds": 1546.8}
+{"step": 1250, "loss": 2.6129, "N": 1024, "lr": 9.259748514523653e-05, "seconds": 1575.0}
+{"step": 1250, "val_em": 5.86, "beta_mean_bias": -0.012631015852093697, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.05, "gap_wrong_N64": 3.022, "gap_real_N1024": 2.155, "gap_wrong_N1024": 2.151}
+{"step": 1275, "loss": 2.775, "N": 2048, "lr": 8.720103936938576e-05, "seconds": 1617.1}
+{"step": 1300, "loss": 2.7181, "N": 512, "lr": 8.190142503906798e-05, "seconds": 1645.5}
+{"step": 1325, "loss": 2.8058, "N": 1024, "lr": 7.670681377545674e-05, "seconds": 1673.8}
+{"step": 1350, "loss": 2.7075, "N": 1024, "lr": 7.162521529260767e-05, "seconds": 1707.2}
+{"step": 1375, "loss": 2.678, "N": 2048, "lr": 6.66644650470597e-05, "seconds": 1735.0}
+{"step": 1400, "loss": 2.7347, "N": 1024, "lr": 6.183221215612904e-05, "seconds": 1766.6}
+{"step": 1425, "loss": 2.6235, "N": 512, "lr": 5.7135907603524936e-05, "seconds": 1793.3}
+{"step": 1450, "loss": 2.7113, "N": 1024, "lr": 5.2582792750472464e-05, "seconds": 1825.5}
+{"step": 1475, "loss": 2.6594, "N": 512, "lr": 4.817988817005876e-05, "seconds": 1855.7}
+{"step": 1500, "loss": 2.6455, "N": 1024, "lr": 4.3933982822017876e-05, "seconds": 1884.1}
+{"step": 1500, "val_em": 4.69, "beta_mean_bias": -0.011041184887290001, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 2.858, "gap_wrong_N64": 2.849, "gap_real_N1024": 2.166, "gap_wrong_N1024": 2.166}
+{"step": 1525, "loss": 2.6408, "N": 1024, "lr": 3.9851623584647144e-05, "seconds": 1920.9}
+{"step": 1550, "loss": 2.6047, "N": 2048, "lr": 3.593910515999536e-05, "seconds": 1954.9}
+{"step": 1575, "loss": 2.634, "N": 512, "lr": 3.220246036788824e-05, "seconds": 1982.2}
+{"step": 1600, "loss": 2.6233, "N": 2048, "lr": 2.8647450843757897e-05, "seconds": 2012.6}
+{"step": 1625, "loss": 2.5729, "N": 1024, "lr": 2.5279558154618197e-05, "seconds": 2043.1}
+{"step": 1650, "loss": 2.6124, "N": 1024, "lr": 2.210397534688617e-05, "seconds": 2071.6}
+{"step": 1675, "loss": 2.5975, "N": 2048, "lr": 1.912559893908042e-05, "seconds": 2101.8}
+{"step": 1700, "loss": 2.6946, "N": 512, "lr": 1.634902137174483e-05, "seconds": 2128.2}
+{"step": 1725, "loss": 2.6889, "N": 512, "lr": 1.3778523926237827e-05, "seconds": 2154.4}
+{"step": 1750, "loss": 2.6095, "N": 2048, "lr": 1.1418070123306989e-05, "seconds": 2183.0}
+{"step": 1750, "val_em": 4.3, "beta_mean_bias": -0.0102846659719944, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 2.808, "gap_wrong_N64": 2.795, "gap_real_N1024": 2.151, "gap_wrong_N1024": 2.146}
+{"step": 1775, "loss": 2.6481, "N": 2048, "lr": 9.271299611627391e-06, "seconds": 2218.7}
+{"step": 1800, "loss": 2.6801, "N": 2048, "lr": 7.34152255572697e-06, "seconds": 2245.5}
+{"step": 1825, "loss": 2.7017, "N": 512, "lr": 5.631714531952924e-06, "seconds": 2271.1}
+{"step": 1850, "loss": 2.6557, "N": 2048, "lr": 4.144511940348516e-06, "seconds": 2301.3}
+{"step": 1875, "loss": 2.7068, "N": 2048, "lr": 2.882207939515435e-06, "seconds": 2330.9}
+{"step": 1900, "loss": 2.5605, "N": 2048, "lr": 1.8467489107293509e-06, "seconds": 2360.7}
+{"step": 1925, "loss": 2.6373, "N": 1024, "lr": 1.0397314567610559e-06, "seconds": 2388.1}
+{"step": 1950, "loss": 2.6556, "N": 1024, "lr": 4.623999400308054e-07, "seconds": 2418.2}
+{"step": 1975, "loss": 2.6806, "N": 512, "lr": 1.1564456389156485e-07, "seconds": 2448.3}
+{"step": 2000, "loss": 2.5828, "N": 1024, "lr": 0.0, "seconds": 2477.6}
+{"step": 2000, "val_em": 4.3, "beta_mean_bias": -0.010139894671738148, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 2.797, "gap_wrong_N64": 2.78, "gap_real_N1024": 2.143, "gap_wrong_N1024": 2.143}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights:  37%|███▋      | 148/398 [00:00<00:00, 1475.52it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 2670.42it/s]
+{"run": "memory-train_seen", "n": 512, "em": 37.89}
+{"run": "memory-train_heldout", "n": 512, "em": 38.09}
+{"run": "memory-dev_in", "n": 512, "em": 31.45}
+{"run": "memory-dev_out", "n": 512, "em": 31.64}
+{"run": "counterfactual-dev_in", "n": 512, "em": 31.45, "cf_follow": 0.0}
+{"run": "memory-dev_in-corpus512", "n": 512, "em": 31.45}
+{"run": "memory-dev_in-corpus1024", "n": 512, "em": 31.05}
+{"run": "memory-dev_in-corpus2048", "n": 512, "em": 31.64}
+{"run": "indomain_cloze-N1024", "n": 512, "em": 3.91}
+{"run": "indomain_cloze-N4342", "n": 512, "em": 4.88}
+{"run": "indomain_cloze-closed_book", "n": 512, "em": 2.15}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights:  59%|█████▉    | 236/398 [00:00<00:00, 2355.27it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 3445.85it/s]
+{"N": 1, "queries": 256, "real_loss": 6.765, "real_em": 1.56, "wrong_loss": 6.752, "wrong_em": 1.95, "null_loss": 7.07, "null_em": 1.56}
+{"N": 4, "queries": 256, "real_loss": 5.103, "real_em": 3.91, "wrong_loss": 5.167, "wrong_em": 3.91, "null_loss": 6.3, "null_em": 3.52}
+{"N": 64, "queries": 256, "real_loss": 2.785, "real_em": 3.52, "wrong_loss": 2.785, "wrong_em": 4.3, "null_loss": 6.256, "null_em": 1.56}
+{"N": 1024, "queries": 128, "real_loss": 3.038, "real_em": 7.03, "wrong_loss": 3.04, "wrong_em": 7.03, "null_loss": 6.496, "null_em": 3.91}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 9782.66it/s]
+experiments/issue-6-delta-rule-memory/train_v2.py:265: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  "beta_mean_bias": float(interface.w_b.bias), "examples": list(zip(val_answers[:4], preds[:4]))}
+{"step": 0, "val_em": 0.78, "beta_mean_bias": 0.0, "examples": [["McCarty", "Brennan Centrella"], ["Marine", "side"], ["Madonna's", "the band"], ["Big Ten", "state"]], "gap_real_N64": 6.496, "gap_wrong_N64": 6.496, "gap_real_N1024": 5.554, "gap_wrong_N1024": 5.554, "val_closed_book_em": 0.78}
+{"step": 25, "loss": 4.3278, "N": 512, "lr": 7.79699324133882e-05, "seconds": 56.8}
+{"step": 50, "loss": 3.1986, "N": 1024, "lr": 0.0001527641760305843, "seconds": 92.2}
+{"step": 75, "loss": 3.1331, "N": 1024, "lr": 0.0002272098040928616, "seconds": 123.0}
+{"step": 100, "loss": 3.1222, "N": 512, "lr": 0.00029815325108927063, "seconds": 153.6}
+{"step": 125, "loss": 3.0174, "N": 512, "lr": 0.00029711779206048454, "seconds": 186.5}
+{"step": 150, "loss": 2.9298, "N": 1024, "lr": 0.0002958554880596515, "seconds": 217.3}
+{"step": 175, "loss": 3.083, "N": 2048, "lr": 0.000294368285468047, "seconds": 249.7}
+{"step": 200, "loss": 2.9697, "N": 1024, "lr": 0.00029265847744427303, "seconds": 284.7}
+{"step": 225, "loss": 3.0039, "N": 2048, "lr": 0.0002907287003883726, "seconds": 323.0}
+{"step": 250, "loss": 3.056, "N": 512, "lr": 0.000288581929876693, "seconds": 359.0}
+{"step": 250, "val_em": 3.12, "beta_mean_bias": -0.013810709118843079, "examples": [["McCarty", "Brennan"], ["Marine", "Squad"], ["Madonna's", "The Weeknd"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.934, "gap_wrong_N64": 3.858, "gap_real_N1024": 2.4, "gap_wrong_N1024": 2.403}
+{"step": 275, "loss": 3.0011, "N": 1024, "lr": 0.0002862214760737622, "seconds": 395.4}
+{"step": 300, "loss": 2.964, "N": 512, "lr": 0.00028365097862825513, "seconds": 429.7}
+{"step": 325, "loss": 2.881, "N": 1024, "lr": 0.0002808744010609196, "seconds": 464.7}
+{"step": 350, "loss": 2.9333, "N": 512, "lr": 0.0002778960246531138, "seconds": 500.3}
+{"step": 375, "loss": 2.778, "N": 1024, "lr": 0.0002747204418453818, "seconds": 537.9}
+{"step": 400, "loss": 2.9773, "N": 512, "lr": 0.0002713525491562421, "seconds": 572.4}
+{"step": 425, "loss": 2.9188, "N": 512, "lr": 0.0002677975396321117, "seconds": 610.2}
+{"step": 450, "loss": 2.9079, "N": 512, "lr": 0.00026406089484000466, "seconds": 641.1}
+{"step": 475, "loss": 2.9058, "N": 1024, "lr": 0.0002601483764153528, "seconds": 678.2}
+{"step": 500, "loss": 2.8204, "N": 512, "lr": 0.00025606601717798207, "seconds": 716.9}
+{"step": 500, "val_em": 4.69, "beta_mean_bias": -0.01774817518889904, "examples": [["McCarty", "Brennan"], ["Marine", "Squad"], ["Madonna's", "Theophilus London's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 4.599, "gap_wrong_N64": 4.604, "gap_real_N1024": 2.252, "gap_wrong_N1024": 2.259}
+{"step": 525, "loss": 2.8808, "N": 2048, "lr": 0.0002518201118299413, "seconds": 760.6}
+{"step": 550, "loss": 2.9241, "N": 1024, "lr": 0.00024741720724952754, "seconds": 797.5}
+{"step": 575, "loss": 2.8059, "N": 1024, "lr": 0.00024286409239647507, "seconds": 832.8}
+{"step": 600, "loss": 2.8872, "N": 1024, "lr": 0.00023816778784387094, "seconds": 871.0}
+{"step": 625, "loss": 2.8722, "N": 2048, "lr": 0.0002333355349529403, "seconds": 907.0}
+{"step": 650, "loss": 2.765, "N": 1024, "lr": 0.0002283747847073923, "seconds": 943.0}
+{"step": 675, "loss": 2.9291, "N": 2048, "lr": 0.00022329318622454325, "seconds": 982.7}
+{"step": 700, "loss": 2.7811, "N": 1024, "lr": 0.00021809857496093199, "seconds": 1021.6}
+{"step": 725, "loss": 2.8053, "N": 512, "lr": 0.0002127989606306142, "seconds": 1056.8}
+{"step": 750, "loss": 2.8151, "N": 512, "lr": 0.00020740251485476345, "seconds": 1092.7}
+{"step": 750, "val_em": 4.3, "beta_mean_bias": -0.01831625960767269, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "The Weeknd's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 4.472, "gap_wrong_N64": 4.275, "gap_real_N1024": 2.259, "gap_wrong_N1024": 2.262}
+{"step": 775, "loss": 2.8537, "N": 1024, "lr": 0.00020191755856162393, "seconds": 1137.1}
+{"step": 800, "loss": 2.7227, "N": 512, "lr": 0.0001963525491562421, "seconds": 1171.1}
+{"step": 825, "loss": 2.7342, "N": 1024, "lr": 0.00019071606747976113, "seconds": 1208.1}
+{"step": 850, "loss": 2.7755, "N": 512, "lr": 0.0001850168045783858, "seconds": 1238.7}
+{"step": 875, "loss": 2.7489, "N": 512, "lr": 0.00017926354830241924, "seconds": 1272.0}
+{"step": 900, "loss": 2.7354, "N": 2048, "lr": 0.00017346516975603462, "seconds": 1315.9}
+{"step": 925, "loss": 2.8796, "N": 1024, "lr": 0.00016763060961867566, "seconds": 1348.9}
+{"step": 950, "loss": 2.7883, "N": 1024, "lr": 0.00016176886435917675, "seconds": 1383.2}
+{"step": 975, "loss": 2.7983, "N": 512, "lr": 0.0001558889723638603, "seconds": 1420.0}
+{"step": 1000, "loss": 2.78, "N": 1024, "lr": 0.00015, "seconds": 1454.8}
+{"step": 1000, "val_em": 4.3, "beta_mean_bias": -0.017936505377292633, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "The Weeknd's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 4.006, "gap_wrong_N64": 3.936, "gap_real_N1024": 2.189, "gap_wrong_N1024": 2.202}
+{"step": 1025, "loss": 2.6964, "N": 1024, "lr": 0.0001441110276361397, "seconds": 1499.1}
+{"step": 1050, "loss": 2.7892, "N": 1024, "lr": 0.00013823113564082325, "seconds": 1529.7}
+{"step": 1075, "loss": 2.7763, "N": 2048, "lr": 0.00013236939038132435, "seconds": 1567.1}
+{"step": 1100, "loss": 2.7196, "N": 1024, "lr": 0.00012653483024396535, "seconds": 1600.9}
+{"step": 1125, "loss": 2.708, "N": 512, "lr": 0.00012073645169758076, "seconds": 1634.3}
+{"step": 1150, "loss": 2.8206, "N": 1024, "lr": 0.0001149831954216142, "seconds": 1667.8}
+{"step": 1175, "loss": 2.765, "N": 2048, "lr": 0.00010928393252023886, "seconds": 1704.8}
+{"step": 1200, "loss": 2.7796, "N": 1024, "lr": 0.0001036474508437579, "seconds": 1738.4}
+{"step": 1225, "loss": 2.5952, "N": 512, "lr": 9.808244143837605e-05, "seconds": 1781.0}
+{"step": 1250, "loss": 2.6342, "N": 1024, "lr": 9.259748514523653e-05, "seconds": 1810.7}
+{"step": 1250, "val_em": 4.69, "beta_mean_bias": -0.01712511107325554, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "The Weeknd's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.881, "gap_wrong_N64": 3.807, "gap_real_N1024": 2.184, "gap_wrong_N1024": 2.179}
+{"step": 1275, "loss": 2.7946, "N": 2048, "lr": 8.720103936938576e-05, "seconds": 1857.2}
+{"step": 1300, "loss": 2.7339, "N": 512, "lr": 8.190142503906798e-05, "seconds": 1889.1}
+{"step": 1325, "loss": 2.8405, "N": 1024, "lr": 7.670681377545674e-05, "seconds": 1921.2}
+{"step": 1350, "loss": 2.7263, "N": 1024, "lr": 7.162521529260767e-05, "seconds": 1960.3}
+{"step": 1375, "loss": 2.6891, "N": 2048, "lr": 6.66644650470597e-05, "seconds": 1993.1}
+{"step": 1400, "loss": 2.744, "N": 1024, "lr": 6.183221215612904e-05, "seconds": 2031.5}
+{"step": 1425, "loss": 2.6431, "N": 512, "lr": 5.7135907603524936e-05, "seconds": 2064.1}
+{"step": 1450, "loss": 2.7198, "N": 1024, "lr": 5.2582792750472464e-05, "seconds": 2104.7}
+{"step": 1475, "loss": 2.6614, "N": 512, "lr": 4.817988817005876e-05, "seconds": 2141.4}
+{"step": 1500, "loss": 2.6403, "N": 1024, "lr": 4.3933982822017876e-05, "seconds": 2176.3}
+{"step": 1500, "val_em": 4.69, "beta_mean_bias": -0.016162818297743797, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye West's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.535, "gap_wrong_N64": 3.513, "gap_real_N1024": 2.169, "gap_wrong_N1024": 2.169}
+{"step": 1525, "loss": 2.6511, "N": 1024, "lr": 3.9851623584647144e-05, "seconds": 2219.7}
+{"step": 1550, "loss": 2.605, "N": 2048, "lr": 3.593910515999536e-05, "seconds": 2261.0}
+{"step": 1575, "loss": 2.6345, "N": 512, "lr": 3.220246036788824e-05, "seconds": 2293.6}
+{"step": 1600, "loss": 2.6308, "N": 2048, "lr": 2.8647450843757897e-05, "seconds": 2331.3}
+{"step": 1625, "loss": 2.5818, "N": 1024, "lr": 2.5279558154618197e-05, "seconds": 2369.4}
+{"step": 1650, "loss": 2.6186, "N": 1024, "lr": 2.210397534688617e-05, "seconds": 2404.5}
+{"step": 1675, "loss": 2.593, "N": 2048, "lr": 1.912559893908042e-05, "seconds": 2442.3}
+{"step": 1700, "loss": 2.7037, "N": 512, "lr": 1.634902137174483e-05, "seconds": 2475.3}
+{"step": 1725, "loss": 2.6943, "N": 512, "lr": 1.3778523926237827e-05, "seconds": 2508.8}
+{"step": 1750, "loss": 2.6111, "N": 2048, "lr": 1.1418070123306989e-05, "seconds": 2544.6}
+{"step": 1750, "val_em": 5.47, "beta_mean_bias": -0.01592804491519928, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.459, "gap_wrong_N64": 3.437, "gap_real_N1024": 2.17, "gap_wrong_N1024": 2.166}
+{"step": 1775, "loss": 2.6558, "N": 2048, "lr": 9.271299611627391e-06, "seconds": 2587.7}
+{"step": 1800, "loss": 2.6811, "N": 2048, "lr": 7.34152255572697e-06, "seconds": 2622.6}
+{"step": 1825, "loss": 2.7013, "N": 512, "lr": 5.631714531952924e-06, "seconds": 2654.6}
+{"step": 1850, "loss": 2.6496, "N": 2048, "lr": 4.144511940348516e-06, "seconds": 2692.4}
+{"step": 1875, "loss": 2.7071, "N": 2048, "lr": 2.882207939515435e-06, "seconds": 2729.7}
+{"step": 1900, "loss": 2.5716, "N": 2048, "lr": 1.8467489107293509e-06, "seconds": 2767.6}
+{"step": 1925, "loss": 2.6477, "N": 1024, "lr": 1.0397314567610559e-06, "seconds": 2801.1}
+{"step": 1950, "loss": 2.6554, "N": 1024, "lr": 4.623999400308054e-07, "seconds": 2839.5}
+{"step": 1975, "loss": 2.6892, "N": 512, "lr": 1.1564456389156485e-07, "seconds": 2876.2}
+{"step": 2000, "loss": 2.5924, "N": 1024, "lr": 0.0, "seconds": 2913.2}
+{"step": 2000, "val_em": 5.86, "beta_mean_bias": -0.015800796449184418, "examples": [["McCarty", "Brennan"], ["Marine", "Sergeant"], ["Madonna's", "Kanye's"], ["Big Ten", "Big Ten"]], "gap_real_N64": 3.405, "gap_wrong_N64": 3.392, "gap_real_N1024": 2.155, "gap_wrong_N1024": 2.162}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights:  41%|████      | 163/398 [00:00<00:00, 1624.87it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 2225.44it/s]
+{"run": "memory-train_seen", "n": 512, "em": 34.77}
+{"run": "memory-train_heldout", "n": 512, "em": 35.55}
+{"run": "memory-dev_in", "n": 512, "em": 28.12}
+{"run": "memory-dev_out", "n": 512, "em": 29.3}
+{"run": "counterfactual-dev_in", "n": 512, "em": 27.93, "cf_follow": 0.0}
+{"run": "memory-dev_in-corpus512", "n": 512, "em": 31.05}
+{"run": "memory-dev_in-corpus1024", "n": 512, "em": 29.49}
+{"run": "memory-dev_in-corpus2048", "n": 512, "em": 29.3}
+{"run": "indomain_cloze-N1024", "n": 512, "em": 3.91}
+{"run": "indomain_cloze-N4342", "n": 512, "em": 4.1}
+{"run": "indomain_cloze-closed_book", "n": 512, "em": 2.15}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 7741.58it/s]
+{"N": 1, "queries": 256, "real_loss": 7.007, "real_em": 1.56, "wrong_loss": 6.984, "wrong_em": 1.56, "null_loss": 7.07, "null_em": 1.56}
+{"N": 4, "queries": 256, "real_loss": 6.013, "real_em": 3.52, "wrong_loss": 6.039, "wrong_em": 3.52, "null_loss": 6.3, "null_em": 3.52}
+{"N": 64, "queries": 256, "real_loss": 3.585, "real_em": 3.52, "wrong_loss": 3.504, "wrong_em": 3.52, "null_loss": 6.256, "null_em": 1.56}
+{"N": 1024, "queries": 128, "real_loss": 3.044, "real_em": 8.59, "wrong_loss": 3.035, "wrong_em": 8.59, "null_loss": 6.496, "null_em": 3.91}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 14810.87it/s]
+experiments/issue-6-delta-rule-memory/train_v2.py:265: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  "beta_mean_bias": float(interface.w_b.bias), "examples": list(zip(val_answers[:4], preds[:4]))}
+{"step": 0, "val_em": 0.78, "beta_mean_bias": 0.0, "examples": [["McCarty", "Brennan Centrella"], ["Marine", "side"], ["Madonna's", "the band"], ["Big Ten", "state"]], "gap_real_N64": 6.496, "gap_wrong_N64": 6.496, "gap_real_N1024": 5.554, "gap_wrong_N1024": 5.554, "val_closed_book_em": 0.78}
+Traceback (most recent call last):
+  File "experiments/issue-6-delta-rule-memory/train_v2.py", line 336, in <module>
+    main()
+    ~~~~^^
+  File "experiments/issue-6-delta-rule-memory/train_v2.py", line 296, in main
+    loss = batch_loss(model, wrapped, tokenizer, formatter, prompts_q, answers_q, state, args.device)
+  File "experiments/issue-6-delta-rule-memory/train_v2.py", line 178, in batch_loss
+    hidden = model.model(input_ids=input_ids, attention_mask=attention, use_cache=False).last_hidden_state
+             ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1787, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1798, in _call_impl
+    return forward_call(*args, **kwargs)
+  File ".venv/lib/python3.13/site-packages/transformers/utils/generic.py", line 1081, in wrapper
+    output = func(self, *args, **kwargs)
+  File ".venv/lib/python3.13/site-packages/transformers/utils/output_capturing.py", line 287, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File ".venv/lib/python3.13/site-packages/transformers/models/qwen3/modeling_qwen3.py", line 405, in forward
+    hidden_states = decoder_layer(
+        hidden_states,
+    ...<5 lines>...
+        **kwargs,
+    )
+  File ".venv/lib/python3.13/site-packages/transformers/modeling_layers.py", line 111, in __call__
+    return super().__call__(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1787, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1798, in _call_impl
+    return forward_call(*args, **kwargs)
+  File ".venv/lib/python3.13/site-packages/transformers/models/qwen3/modeling_qwen3.py", line 313, in forward
+    hidden_states = self.mlp(hidden_states)
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1787, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1798, in _call_impl
+    return forward_call(*args, **kwargs)
+  File ".venv/lib/python3.13/site-packages/transformers/models/qwen3/modeling_qwen3.py", line 81, in forward
+    down_proj = self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+                                           ~~~~~~~~~~~~~~^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1787, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1798, in _call_impl
+    return forward_call(*args, **kwargs)
+  File ".venv/lib/python3.13/site-packages/torch/nn/modules/linear.py", line 134, in forward
+    return F.linear(input, self.weight, self.bias)
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 32.00 MiB. GPU 0 has a total capacity of 23.42 GiB of which 23.25 MiB is free. Including non-PyTorch memory, this process has 23.36 GiB memory in use. Of the allocated memory 22.74 GiB is allocated by PyTorch, and 199.91 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

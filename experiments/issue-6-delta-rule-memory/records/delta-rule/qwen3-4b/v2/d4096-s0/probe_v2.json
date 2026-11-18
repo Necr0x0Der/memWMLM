@@ -1,0 +1,42 @@
+[
+  {
+    "N": 1,
+    "queries": 256,
+    "real_loss": 7.041,
+    "real_em": 1.56,
+    "wrong_loss": 7.019,
+    "wrong_em": 1.95,
+    "null_loss": 7.07,
+    "null_em": 1.56
+  },
+  {
+    "N": 4,
+    "queries": 256,
+    "real_loss": 6.135,
+    "real_em": 3.12,
+    "wrong_loss": 6.147,
+    "wrong_em": 4.3,
+    "null_loss": 6.3,
+    "null_em": 3.52
+  },
+  {
+    "N": 64,
+    "queries": 256,
+    "real_loss": 4.066,
+    "real_em": 3.91,
+    "wrong_loss": 4.342,
+    "wrong_em": 3.12,
+    "null_loss": 6.256,
+    "null_em": 1.56
+  },
+  {
+    "N": 1024,
+    "queries": 128,
+    "real_loss": 3.049,
+    "real_em": 7.81,
+    "wrong_loss": 3.053,
+    "wrong_em": 7.81,
+    "null_loss": 6.496,
+    "null_em": 3.91
+  }
+]

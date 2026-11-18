@@ -1,0 +1,104 @@
+{
+  "data": "runs/delta-rule/global-v1",
+  "banks_dir": "runs/delta-rule/banks-v2",
+  "output_dir": "runs/delta-rule/global-v1/runs/frozen-delta-g0.3",
+  "stage": "frozen",
+  "rule": "delta",
+  "beta": 0.5,
+  "beta_norm": "none",
+  "gate": 0.3,
+  "train_null": false,
+  "lora_rank": 8,
+  "epochs": 2,
+  "batch_size": 16,
+  "lr_gate": 0.01,
+  "lr_lora": 0.0001,
+  "seed": 0,
+  "references": true,
+  "eval_limit": null,
+  "train_limit": null,
+  "gen_batch_size": 32,
+  "write_batch_size": 64,
+  "max_new_tokens": 32,
+  "model": "Qwen/Qwen3-1.7B",
+  "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "device": "cuda",
+  "data_manifest_sha256": "a2750e85ab61e21f66577795bfd899c20e565626ce8bab1f9634a49ee203b84d",
+  "corpus_passages": 4342,
+  "trainable_parameters": 0,
+  "optimizer_steps": 0,
+  "train_seconds": 0.0,
+  "final_loss_25": null,
+  "repository_commit": "39f76ccc55d09d076be775a5ca817a8e94eae72e",
+  "working_tree_dirty": true,
+  "torch": "2.15.0+cu132",
+  "prompt": "triviaqa_short_answer_v1",
+  "summaries": [
+    {
+      "run": "memory-train_seen",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-train_heldout",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-dev_in",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "counterfactual-dev_in",
+      "n": 512,
+      "em": 0.0,
+      "cf_follow": 0.0
+    },
+    {
+      "run": "memory-dev_out",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "closed_book-train_seen",
+      "n": 512,
+      "em": 21.88
+    },
+    {
+      "run": "rag_bm25@1-train_seen",
+      "n": 512,
+      "em": 55.08
+    },
+    {
+      "run": "closed_book-train_heldout",
+      "n": 512,
+      "em": 25.59
+    },
+    {
+      "run": "rag_bm25@1-train_heldout",
+      "n": 512,
+      "em": 55.47
+    },
+    {
+      "run": "closed_book-dev_in",
+      "n": 512,
+      "em": 18.16
+    },
+    {
+      "run": "rag_bm25@1-dev_in",
+      "n": 512,
+      "em": 52.34
+    },
+    {
+      "run": "closed_book-dev_out",
+      "n": 512,
+      "em": 16.02
+    },
+    {
+      "run": "rag_bm25@1-dev_out",
+      "n": 512,
+      "em": 13.09
+    }
+  ]
+}

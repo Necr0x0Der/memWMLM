@@ -1,0 +1,145 @@
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 18476.59it/s]
+{"condition": "memory", "tag": "A-g0.05", "N": 16, "examples": 512, "exact_match": 19.92, "seconds": 15.2}
+{"condition": "shuffled_memory", "tag": "A-g0.05", "N": 16, "examples": 512, "exact_match": 19.14, "seconds": 14.5}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 21814.65it/s]
+{"condition": "memory", "tag": "A-g0.1", "N": 16, "examples": 512, "exact_match": 16.21, "seconds": 16.3}
+{"condition": "shuffled_memory", "tag": "A-g0.1", "N": 16, "examples": 512, "exact_match": 16.8, "seconds": 16.4}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 12459.44it/s]
+{"condition": "memory", "tag": "A-g0.2", "N": 16, "examples": 512, "exact_match": 1.37, "seconds": 22.8}
+{"condition": "shuffled_memory", "tag": "A-g0.2", "N": 16, "examples": 512, "exact_match": 1.95, "seconds": 23.4}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 22342.61it/s]
+{"condition": "memory", "tag": "A-g0.5", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 20.0}
+{"condition": "shuffled_memory", "tag": "A-g0.5", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 22.4}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 22175.48it/s]
+{"condition": "memory", "tag": "A-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 24.7}
+{"condition": "shuffled_memory", "tag": "A-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 25.4}
+A gate 0.05: memory 19.92 shuffled 19.14 diff +0.78
+A gate 0.1: memory 16.21 shuffled 16.80 diff -0.59
+A gate 0.2: memory 1.37 shuffled 1.95 diff -0.59
+A gate 0.5: memory 0.00 shuffled 0.00 diff +0.00
+A gate 1: memory 0.00 shuffled 0.00 diff +0.00
+SELECTED 1.7b A gate 0.05
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 21620.84it/s]
+{"condition": "closed_book", "tag": "A", "N": 1, "examples": 1024, "exact_match": 17.09, "seconds": 64.1}
+{"condition": "memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 17.97, "seconds": 99.8}
+{"condition": "shuffled_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 16.89, "seconds": 102.5}
+{"condition": "counterfactual_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 17.19, "seconds": 100.4}
+{"condition": "memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 17.87, "seconds": 54.5}
+{"condition": "shuffled_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 16.99, "seconds": 55.2}
+{"condition": "counterfactual_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 17.87, "seconds": 55.5}
+{"condition": "memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 17.09, "seconds": 38.3}
+{"condition": "shuffled_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 17.48, "seconds": 38.5}
+{"condition": "counterfactual_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 17.58, "seconds": 38.5}
+{"condition": "memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 16.02, "seconds": 45.3}
+{"condition": "shuffled_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 16.21, "seconds": 46.0}
+{"condition": "counterfactual_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 15.82, "seconds": 45.5}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 14866.98it/s]
+{"condition": "memory", "tag": "B-g0.05", "N": 16, "examples": 512, "exact_match": 19.34, "seconds": 28.9}
+{"condition": "shuffled_memory", "tag": "B-g0.05", "N": 16, "examples": 512, "exact_match": 19.14, "seconds": 32.0}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 15567.27it/s]
+{"condition": "memory", "tag": "B-g0.1", "N": 16, "examples": 512, "exact_match": 17.97, "seconds": 29.4}
+{"condition": "shuffled_memory", "tag": "B-g0.1", "N": 16, "examples": 512, "exact_match": 16.99, "seconds": 28.6}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 18335.30it/s]
+{"condition": "memory", "tag": "B-g0.2", "N": 16, "examples": 512, "exact_match": 12.7, "seconds": 31.5}
+{"condition": "shuffled_memory", "tag": "B-g0.2", "N": 16, "examples": 512, "exact_match": 12.5, "seconds": 31.6}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 13930.10it/s]
+{"condition": "memory", "tag": "B-g0.5", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 40.0}
+{"condition": "shuffled_memory", "tag": "B-g0.5", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 40.3}
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 13366.83it/s]
+{"condition": "memory", "tag": "B-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 39.6}
+{"condition": "shuffled_memory", "tag": "B-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 40.3}
+B gate 0.05: memory 19.34 shuffled 19.14 diff +0.20
+B gate 0.1: memory 17.97 shuffled 16.99 diff +0.98
+B gate 0.2: memory 12.70 shuffled 12.50 diff +0.20
+B gate 0.5: memory 0.00 shuffled 0.00 diff +0.00
+B gate 1: memory 0.00 shuffled 0.00 diff +0.00
+SELECTED 1.7b B gate 0.1
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 12856.58it/s]
+{"condition": "closed_book", "tag": "B", "N": 1, "examples": 1024, "exact_match": 17.09, "seconds": 63.9}
+{"condition": "memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 18.55, "seconds": 141.4}
+{"condition": "shuffled_memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 16.8, "seconds": 142.1}
+{"condition": "counterfactual_memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 18.36, "seconds": 144.4}
+{"condition": "memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 17.19, "seconds": 77.0}
+{"condition": "shuffled_memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 15.43, "seconds": 78.8}
+.venv/lib/python3.13/site-packages/triton/knobs.py:504: UserWarning: TRITON_DEFAULT_FP_FUSION is unset: defaulting to FP fusion ENABLED for backward compatibility in Triton 3.9. The default will change to DISABLED in Triton 3.10; set TRITON_DEFAULT_FP_FUSION=1 to keep fusion enabled or =0 to adopt the new default early and silence this warning.
+  warn_once(FP_FUSION_DEFAULT_WARNING)
+{"condition": "counterfactual_memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 16.8, "seconds": 80.9}
+{"condition": "memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 16.5, "seconds": 55.7}
+{"condition": "shuffled_memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 16.02, "seconds": 58.1}
+{"condition": "counterfactual_memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 16.02, "seconds": 58.2}
+{"condition": "memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 15.14, "seconds": 63.6}
+{"condition": "shuffled_memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 14.75, "seconds": 59.9}
+{"condition": "counterfactual_memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 15.33, "seconds": 63.9}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 6543.09it/s]
+{"condition": "memory", "tag": "A-g0.05", "N": 16, "examples": 512, "exact_match": 35.16, "seconds": 27.1}
+{"condition": "shuffled_memory", "tag": "A-g0.05", "N": 16, "examples": 512, "exact_match": 34.38, "seconds": 29.1}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 9405.33it/s]
+{"condition": "memory", "tag": "A-g0.1", "N": 16, "examples": 512, "exact_match": 30.86, "seconds": 29.3}
+{"condition": "shuffled_memory", "tag": "A-g0.1", "N": 16, "examples": 512, "exact_match": 28.91, "seconds": 31.9}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 11051.38it/s]
+{"condition": "memory", "tag": "A-g0.2", "N": 16, "examples": 512, "exact_match": 8.98, "seconds": 41.3}
+{"condition": "shuffled_memory", "tag": "A-g0.2", "N": 16, "examples": 512, "exact_match": 6.84, "seconds": 40.5}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 17420.64it/s]
+{"condition": "memory", "tag": "A-g0.5", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 41.9}
+{"condition": "shuffled_memory", "tag": "A-g0.5", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 46.9}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 14373.83it/s]
+{"condition": "memory", "tag": "A-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 45.0}
+{"condition": "shuffled_memory", "tag": "A-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 46.0}
+A gate 0.05: memory 35.16 shuffled 34.38 diff +0.78
+A gate 0.1: memory 30.86 shuffled 28.91 diff +1.95
+A gate 0.2: memory 8.98 shuffled 6.84 diff +2.15
+A gate 0.5: memory 0.00 shuffled 0.00 diff +0.00
+A gate 1: memory 0.00 shuffled 0.00 diff +0.00
+SELECTED 4b A gate 0.2
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 14493.13it/s]
+{"condition": "closed_book", "tag": "A", "N": 1, "examples": 1024, "exact_match": 33.79, "seconds": 103.7}
+{"condition": "memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 36.91, "seconds": 163.2}
+{"condition": "shuffled_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 26.66, "seconds": 175.4}
+{"condition": "counterfactual_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 29.88, "seconds": 169.1}
+{"condition": "memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 17.09, "seconds": 116.3}
+{"condition": "shuffled_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 14.84, "seconds": 121.3}
+{"condition": "counterfactual_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 16.41, "seconds": 115.8}
+{"condition": "memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 5.08, "seconds": 85.4}
+{"condition": "shuffled_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 4.79, "seconds": 86.1}
+{"condition": "counterfactual_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 3.32, "seconds": 84.2}
+{"condition": "memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 1.07, "seconds": 92.6}
+{"condition": "shuffled_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 3.52, "seconds": 87.7}
+{"condition": "counterfactual_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 0.98, "seconds": 88.6}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 14654.84it/s]
+{"condition": "memory", "tag": "B-g0.05", "N": 16, "examples": 512, "exact_match": 36.52, "seconds": 50.9}
+{"condition": "shuffled_memory", "tag": "B-g0.05", "N": 16, "examples": 512, "exact_match": 36.33, "seconds": 54.4}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 12824.15it/s]
+{"condition": "memory", "tag": "B-g0.1", "N": 16, "examples": 512, "exact_match": 35.16, "seconds": 52.8}
+{"condition": "shuffled_memory", "tag": "B-g0.1", "N": 16, "examples": 512, "exact_match": 33.98, "seconds": 56.9}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 13997.07it/s]
+{"condition": "memory", "tag": "B-g0.2", "N": 16, "examples": 512, "exact_match": 30.66, "seconds": 54.8}
+{"condition": "shuffled_memory", "tag": "B-g0.2", "N": 16, "examples": 512, "exact_match": 29.88, "seconds": 58.3}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 14369.99it/s]
+{"condition": "memory", "tag": "B-g0.5", "N": 16, "examples": 512, "exact_match": 0.98, "seconds": 81.1}
+{"condition": "shuffled_memory", "tag": "B-g0.5", "N": 16, "examples": 512, "exact_match": 0.2, "seconds": 84.3}
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 16961.15it/s]
+{"condition": "memory", "tag": "B-g1", "N": 16, "examples": 512, "exact_match": 0.2, "seconds": 80.3}
+{"condition": "shuffled_memory", "tag": "B-g1", "N": 16, "examples": 512, "exact_match": 0.0, "seconds": 82.9}
+B gate 0.05: memory 36.52 shuffled 36.33 diff +0.20
+B gate 0.1: memory 35.16 shuffled 33.98 diff +1.17
+B gate 0.2: memory 30.66 shuffled 29.88 diff +0.78
+B gate 0.5: memory 0.98 shuffled 0.20 diff +0.78
+B gate 1: memory 0.20 shuffled 0.00 diff +0.20
+SELECTED 4b B gate 0.1
+Loading weights:   0%|          | 0/398 [00:00<?, ?it/s]Loading weights: 100%|██████████| 398/398 [00:00<00:00, 12947.59it/s]
+{"condition": "closed_book", "tag": "B", "N": 1, "examples": 1024, "exact_match": 33.79, "seconds": 105.6}
+{"condition": "memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 36.72, "seconds": 228.3}
+{"condition": "shuffled_memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 32.52, "seconds": 230.0}
+{"condition": "counterfactual_memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 34.18, "seconds": 229.7}
+{"condition": "memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 33.69, "seconds": 135.3}
+{"condition": "shuffled_memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 31.84, "seconds": 135.5}
+.venv/lib/python3.13/site-packages/triton/knobs.py:504: UserWarning: TRITON_DEFAULT_FP_FUSION is unset: defaulting to FP fusion ENABLED for backward compatibility in Triton 3.9. The default will change to DISABLED in Triton 3.10; set TRITON_DEFAULT_FP_FUSION=1 to keep fusion enabled or =0 to adopt the new default early and silence this warning.
+  warn_once(FP_FUSION_DEFAULT_WARNING)
+{"condition": "counterfactual_memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 33.2, "seconds": 134.4}
+{"condition": "memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 31.93, "seconds": 112.3}
+{"condition": "shuffled_memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 32.03, "seconds": 113.4}
+{"condition": "counterfactual_memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 32.42, "seconds": 112.0}
+{"condition": "memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 31.45, "seconds": 116.5}
+{"condition": "shuffled_memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 30.47, "seconds": 117.4}
+{"condition": "counterfactual_memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 31.35, "seconds": 115.3}
+CAPACITY QUEUE DONE

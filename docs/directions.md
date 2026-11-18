@@ -100,7 +100,14 @@ Initial experiments inside this direction:
   gains are concentrated in factual recall rather than uniform reasoning;
 - delta-rule / associative memory on TriviaQA (issue #6): write-once KV-like
   associative memory with a minimally trained interface, compared with RAG and
-  full-context;
+  full-context. *Status (2026-11-16): negative for Qwen3-1.7B and Qwen3-4B
+  at a 4,342-passage memory.* Neither Qwen's own heads (frozen, gated, LoRA,
+  expanded keys) nor a writer/reader trained on general text made the model
+  use written facts. Every gain was adaptation that did not depend on the
+  content: equal with an empty or an answer-swapped memory, while BM25@1 RAG gained +34 points. On small banks, 32× more key space did not
+  extend the content signal, so the frozen read itself is limiting; open
+  are the interface objective and, at corpus scale, capacity (see
+  `experiments/issue-6-delta-rule-memory/RESULTS.md`);
 - RAG/full-context baselines with matched corpus, top-k, and prompt.
 
 Important caveats:
@@ -140,6 +147,13 @@ Related observations:
 - DeltaNet/delta-rule state `S ← αS + βk⊗v` is closer to a working-memory content
   state than an embedding-per-token representation, but it is still a narrow,
   compressed KV/associative memory — not a world or problem state.
+- Issue #6 is one data point for the critique: an interface trained on Qwen
+  layer-14 hidden states to write and read a delta-rule state learned a
+  content-independent prior, not retrieval. Those states are dominated by one
+  massive-activation dimension, and the raw keys were nearly collinear (mean
+  cosine 0.46). This is consistent with predictive features being poor memory
+  keys, but it does not separate representation from objective or training
+  budget.
 - JEPA predicts in latent space instead of reconstructing the input. A proposed
   extension is a **gated predictive autoencoder**: keep reconstruction loss but
   gate it, so the model learns content state rather than only predictive features.

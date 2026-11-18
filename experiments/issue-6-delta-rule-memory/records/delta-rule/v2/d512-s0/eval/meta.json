@@ -1,0 +1,88 @@
+{
+  "checkpoint": "runs/delta-rule/v2/d512-s0/interface.pt",
+  "train_args": {
+    "data": "runs/delta-rule/wikitext-cloze-v1",
+    "output_dir": "runs/delta-rule/v2/d512-s0",
+    "width": 512,
+    "layer": 14,
+    "cache": null,
+    "steps": 2000,
+    "bank_sizes": "512,1024,2048",
+    "queries": 32,
+    "lr": 0.0003,
+    "warmup": 100,
+    "weight_decay": 0.01,
+    "beta_bias": 0.0,
+    "chunk_size": 1024,
+    "encode_batch": 128,
+    "val_every": 250,
+    "val_bank": 1024,
+    "val_queries": 256,
+    "seed": 0,
+    "model": "Qwen/Qwen3-1.7B",
+    "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+    "device": "cuda"
+  },
+  "step": 2000,
+  "corpus_passages": 4342,
+  "repository_commit": "39f76ccc55d09d076be775a5ca817a8e94eae72e",
+  "working_tree_dirty": true,
+  "summaries": [
+    {
+      "run": "memory-train_seen",
+      "n": 512,
+      "em": 18.75
+    },
+    {
+      "run": "memory-train_heldout",
+      "n": 512,
+      "em": 22.46
+    },
+    {
+      "run": "memory-dev_in",
+      "n": 512,
+      "em": 17.77
+    },
+    {
+      "run": "memory-dev_out",
+      "n": 512,
+      "em": 15.43
+    },
+    {
+      "run": "counterfactual-dev_in",
+      "n": 512,
+      "em": 17.58,
+      "cf_follow": 0.0
+    },
+    {
+      "run": "memory-dev_in-corpus512",
+      "n": 512,
+      "em": 16.99
+    },
+    {
+      "run": "memory-dev_in-corpus1024",
+      "n": 512,
+      "em": 17.19
+    },
+    {
+      "run": "memory-dev_in-corpus2048",
+      "n": 512,
+      "em": 17.38
+    },
+    {
+      "run": "indomain_cloze-N1024",
+      "n": 512,
+      "em": 2.73
+    },
+    {
+      "run": "indomain_cloze-N4342",
+      "n": 512,
+      "em": 1.95
+    },
+    {
+      "run": "indomain_cloze-closed_book",
+      "n": 512,
+      "em": 1.37
+    }
+  ]
+}

@@ -1,0 +1,145 @@
+{
+  "data": "runs/delta-rule/global-v1",
+  "banks_dir": "runs/delta-rule/banks-v2",
+  "output_dir": "runs/delta-rule/global-v1/expand/delta-D2048",
+  "stage": "frozen",
+  "rule": "delta",
+  "beta": 0.5,
+  "beta_norm": "none",
+  "gate": 1.0,
+  "train_null": false,
+  "key_expand": 8,
+  "gates": "0.1,0.3,1,3",
+  "eval_groups": "train_seen,train_heldout,dev_in,dev_out",
+  "lora_rank": 8,
+  "epochs": 2,
+  "batch_size": 16,
+  "lr_gate": 0.01,
+  "lr_lora": 0.0001,
+  "seed": 0,
+  "references": false,
+  "eval_limit": null,
+  "train_limit": null,
+  "gen_batch_size": 32,
+  "write_batch_size": 64,
+  "max_new_tokens": 32,
+  "model": "Qwen/Qwen3-1.7B",
+  "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+  "device": "cuda",
+  "data_manifest_sha256": "a2750e85ab61e21f66577795bfd899c20e565626ce8bab1f9634a49ee203b84d",
+  "corpus_passages": 4342,
+  "trainable_parameters": 0,
+  "optimizer_steps": 0,
+  "train_seconds": 0.0,
+  "final_loss_25": null,
+  "repository_commit": "39f76ccc55d09d076be775a5ca817a8e94eae72e",
+  "working_tree_dirty": true,
+  "torch": "2.15.0+cu132",
+  "prompt": "triviaqa_short_answer_v1",
+  "summaries": [
+    {
+      "run": "memory-train_seen-g0.1",
+      "n": 512,
+      "em": 10.74
+    },
+    {
+      "run": "memory-train_seen-g0.3",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-train_seen-g1.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-train_seen-g3.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-train_heldout-g0.1",
+      "n": 512,
+      "em": 13.48
+    },
+    {
+      "run": "memory-train_heldout-g0.3",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-train_heldout-g1.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-train_heldout-g3.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-dev_in-g0.1",
+      "n": 512,
+      "em": 7.81
+    },
+    {
+      "run": "counterfactual-dev_in-g0.1",
+      "n": 512,
+      "em": 8.4,
+      "cf_follow": 0.0
+    },
+    {
+      "run": "memory-dev_in-g0.3",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "counterfactual-dev_in-g0.3",
+      "n": 512,
+      "em": 0.0,
+      "cf_follow": 0.0
+    },
+    {
+      "run": "memory-dev_in-g1.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "counterfactual-dev_in-g1.0",
+      "n": 512,
+      "em": 0.0,
+      "cf_follow": 0.0
+    },
+    {
+      "run": "memory-dev_in-g3.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "counterfactual-dev_in-g3.0",
+      "n": 512,
+      "em": 0.0,
+      "cf_follow": 0.0
+    },
+    {
+      "run": "memory-dev_out-g0.1",
+      "n": 512,
+      "em": 10.16
+    },
+    {
+      "run": "memory-dev_out-g0.3",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-dev_out-g1.0",
+      "n": 512,
+      "em": 0.0
+    },
+    {
+      "run": "memory-dev_out-g3.0",
+      "n": 512,
+      "em": 0.0
+    }
+  ]
+}

@@ -26,7 +26,8 @@ from torch import Tensor, nn
 
 
 SPLITS = ("train", "validation", "test")
-POOLINGS = ("last_token", "mean_pool", "sentence_end_mean")
+AVAILABLE_POOLINGS = ("last_token", "mean_pool", "sentence_end_mean")
+DEFAULT_POOLINGS = ("last_token", "mean_pool")
 RESULT_SCHEMA_VERSION = "spatial-linear-probes-v1"
 
 
@@ -60,10 +61,11 @@ def load_feature_split(
     split: str,
     split_manifest: Mapping[str, object],
     expected_ids: Sequence[str],
+    poolings: Sequence[str] = DEFAULT_POOLINGS,
 ) -> tuple[tuple[int, ...], dict[str, Tensor]]:
     """Load one split, verify shard hashes, and reorder tensors to dataset IDs."""
     ids: list[str] = []
-    chunks: dict[str, list[Tensor]] = {pooling: [] for pooling in POOLINGS}
+    chunks: dict[str, list[Tensor]] = {pooling: [] for pooling in poolings}
     layer_indices: tuple[int, ...] | None = None
     shards = split_manifest.get("shards")
     if not isinstance(shards, list) or not shards:
@@ -89,7 +91,7 @@ def load_feature_split(
         if not isinstance(shard_ids, list) or not all(isinstance(item, str) for item in shard_ids):
             raise ValueError(f"Invalid ids in {shard_path}")
         ids.extend(shard_ids)
-        for pooling in POOLINGS:
+        for pooling in poolings:
             tensor = payload[pooling]
             if tensor.ndim != 3 or tensor.shape[0] != len(shard_ids):
                 raise ValueError(f"Invalid {pooling} shape in {shard_path}: {tuple(tensor.shape)}")
@@ -106,7 +108,7 @@ def load_feature_split(
     order = torch.tensor([index[row_id] for row_id in expected_ids], dtype=torch.long)
     features = {
         pooling: torch.cat(chunks[pooling], dim=0).index_select(0, order)
-        for pooling in POOLINGS
+        for pooling in poolings
     }
     return layer_indices, features
 
@@ -384,11 +386,14 @@ def run_experiment(
     device: str,
     shuffle_seed: int,
     bootstrap_samples: int,
+    poolings: Sequence[str] = DEFAULT_POOLINGS,
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
     if not l2_values or any(value < 0 or not math.isfinite(value) for value in l2_values):
         raise ValueError("--l2-values must contain finite non-negative values")
+    if not poolings or any(pooling not in AVAILABLE_POOLINGS for pooling in poolings):
+        raise ValueError(f"poolings must be drawn from {AVAILABLE_POOLINGS}")
     dataset_manifest = json.loads((dataset_dir / "manifest.json").read_text(encoding="utf-8"))
     feature_manifest = json.loads((feature_dir / "manifest.json").read_text(encoding="utf-8"))
     probes = dataset_manifest.get("probes")
@@ -412,6 +417,7 @@ def run_experiment(
             split,
             feature_manifest["splits"][split],
             [str(row["id"]) for row in rows[split]],
+            poolings,
         )
         if layer_indices is None:
             layer_indices = split_layers
@@ -426,7 +432,7 @@ def run_experiment(
     selection: list[dict[str, object]] = []
     best_key: tuple[float, float, float] | None = None
     best_config: dict[str, object] | None = None
-    for pooling in POOLINGS:
+    for pooling in poolings:
         for layer_offset, layer in enumerate(layer_indices):
             train_x = all_features["train"][pooling][:, layer_offset, :]
             validation_x = all_features["validation"][pooling][:, layer_offset, :]
@@ -516,6 +522,7 @@ def run_experiment(
             "dataset_manifest_sha256": sha256(dataset_dir / "manifest.json"),
             "feature_manifest_sha256": sha256(feature_dir / "manifest.json"),
             "layer_indices": list(layer_indices),
+            "poolings": list(poolings),
             "l2_values": list(l2_values),
             "max_iter": max_iter,
             "device": device,
@@ -552,12 +559,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--shuffle-seed", type=int, default=12012)
     parser.add_argument("--bootstrap-samples", type=int, default=2000)
+    parser.add_argument(
+        "--poolings",
+        default=",".join(DEFAULT_POOLINGS),
+        help=(
+            "Comma-separated pooling candidates; default: last_token,mean_pool. "
+            "sentence_end_mean is an optional diagnostic."
+        ),
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     l2_values = tuple(float(value.strip()) for value in args.l2_values.split(","))
+    poolings = tuple(value.strip() for value in args.poolings.split(",") if value.strip())
     report = run_experiment(
         args.dataset_dir,
         args.feature_dir,
@@ -567,6 +583,7 @@ def main() -> None:
         args.device,
         args.shuffle_seed,
         args.bootstrap_samples,
+        poolings,
     )
     print(json.dumps({"report": str(report)}))
 

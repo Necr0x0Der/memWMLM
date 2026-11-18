@@ -153,7 +153,7 @@ create the smoke output directory beforehand.
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   experiments/issue-12-hidden-state-probes/extract_hidden_features.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b-smoke \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b-smoke \
   --model Qwen/Qwen3-1.7B \
   --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
   --layers 4,8,12,16,20,24,last \
@@ -169,7 +169,7 @@ Verify that all parameters remained frozen and exactly six examples were
 processed:
 
 ```bash
-.venv/bin/python -c "import json,pathlib; m=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b-smoke/manifest.json').read_text()); assert m['schema_version']=='qwen-hidden-probe-features-v2'; assert m['model']['trainable_parameters']==0; assert m['max_examples_per_split']==2; assert {s:m['splits'][s]['examples'] for s in ('train','validation','test')}=={'train':2,'validation':2,'test':2}; print(m['model']); print('peak_vram_bytes',m['peak_vram_bytes'])"
+.venv/bin/python -c "import json,pathlib; m=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b-smoke/manifest.json').read_text()); assert m['model']['trainable_parameters']==0; assert m['max_examples_per_split']==2; assert {s:m['splits'][s]['examples'] for s in ('train','validation','test')}=={'train':2,'validation':2,'test':2}; print(m['model']); print('peak_vram_bytes',m['peak_vram_bytes'])"
 ```
 
 ### 5.2 Run the complete extraction
@@ -180,7 +180,7 @@ Do not create the full feature output directory beforehand.
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   experiments/issue-12-hidden-state-probes/extract_hidden_features.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
   --model Qwen/Qwen3-1.7B \
   --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
   --layers 4,8,12,16,20,24,last \
@@ -199,17 +199,16 @@ next-token logits.
 The output contains a manifest and bounded-size PyTorch shards:
 
 ```text
-experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b/manifest.json
-experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b/train/shard-*.pt
-experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b/validation/shard-*.pt
-experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b/test/shard-*.pt
+experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b/manifest.json
+experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b/train/shard-*.pt
+experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b/validation/shard-*.pt
+experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b/test/shard-*.pt
 ```
 
-Each shard contains `last_token`, `mean_pool`, and `sentence_end_mean`. The
-last representation averages the six hidden vectors at the final tokenizer
-token of each fact line and excludes the optional instruction line. With
-float16 storage, the three pooling variants occupy approximately 378 MiB of
-raw tensor data, plus serialization overhead.
+With float16 storage, the two baseline pooling variants occupy approximately
+252 MiB of raw tensor data, plus serialization overhead. The extractor also
+stores the optional `sentence_end_mean` diagnostic, but the baseline probe
+commands below explicitly select only `last_token` and `mean_pool`.
 
 ## 6. Verify the feature artifacts
 
@@ -217,19 +216,19 @@ Check the frozen-model record, layer selection, split sizes, shard hashes, and
 tensor shapes:
 
 ```bash
-.venv/bin/python -c "import hashlib,json,pathlib,torch; p=pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b'); m=json.loads((p/'manifest.json').read_text()); assert m['schema_version']=='qwen-hidden-probe-features-v2'; assert m['model']['trainable_parameters']==0 and m['model']['eval_mode']; assert m['model']['requested_revision']=='70d244cc86ccca08cf5af4e1e306ecf908b1ad5e'; assert m['features']['layer_indices']==[4,8,12,16,20,24,28]; expected={'train':3264,'validation':576,'test':768}; assert all(m['splits'][s]['examples']==n for s,n in expected.items()); shards=[(s,x) for s in expected for x in m['splits'][s]['shards']]; assert all(hashlib.sha256((p/s/x['path']).read_bytes()).hexdigest()==x['sha256'] for s,x in shards); sample=torch.load(p/'train'/m['splits']['train']['shards'][0]['path'],weights_only=True); assert all(sample[k].shape[1:]==(7,2048) for k in ('last_token','mean_pool','sentence_end_mean')); assert sample['last_token'].dtype==torch.float16 and sample['ids']; assert sample['sentence_end_counts'].eq(6).all(); print(m['model']); print({s:m['splits'][s]['examples'] for s in expected}); print({k:sample[k].shape for k in ('last_token','mean_pool','sentence_end_mean')})"
+.venv/bin/python -c "import hashlib,json,pathlib,torch; p=pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b'); m=json.loads((p/'manifest.json').read_text()); assert m['model']['trainable_parameters']==0 and m['model']['eval_mode']; assert m['model']['requested_revision']=='70d244cc86ccca08cf5af4e1e306ecf908b1ad5e'; assert m['features']['layer_indices']==[4,8,12,16,20,24,28]; expected={'train':3264,'validation':576,'test':768}; assert all(m['splits'][s]['examples']==n for s,n in expected.items()); shards=[(s,x) for s in expected for x in m['splits'][s]['shards']]; assert all(hashlib.sha256((p/s/x['path']).read_bytes()).hexdigest()==x['sha256'] for s,x in shards); sample=torch.load(p/'train'/m['splits']['train']['shards'][0]['path'],weights_only=True); assert sample['last_token'].shape[1:]==(7,2048) and sample['mean_pool'].shape[1:]==(7,2048); assert sample['last_token'].dtype==torch.float16 and sample['ids']; print(m['model']); print({s:m['splits'][s]['examples'] for s in expected}); print(sample['last_token'].shape, sample['mean_pool'].shape)"
 ```
 
 The first tensor dimension equals the number of examples in that shard; with
 the default batch size the printed sample shape should normally be
-`[8, 7, 2048]` for all three pooling variants.
+`[8, 7, 2048]` for both baseline pooling variants.
 
 ## 7. Preserve and transfer the run
 
 Keep these artifacts together:
 
 - `artifacts/db/manifest.json` and all three database JSONL files;
-- the complete `features-sentence-end-qwen3-1.7b/` directory;
+- the complete `features-qwen3-1.7b/` directory;
 - the terminal log containing GPU model, runtime, and any peak-memory data;
 - the repository commit SHA printed in step 1.
 
@@ -252,8 +251,9 @@ layer, and L2 coefficient. Run it once for the result-bearing feature set:
 ```bash
 .venv/bin/python experiments/issue-12-hidden-state-probes/train_linear_probes.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/probes-sentence-end-qwen3-1.7b \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/probes-qwen3-1.7b \
+  --poolings last_token,mean_pool \
   --l2-values 0,1e-5,1e-4,1e-3 \
   --max-iter 100 \
   --device cpu \
@@ -265,14 +265,14 @@ The command refuses to overwrite an existing output and verifies all dataset
 and feature hashes. It writes:
 
 ```text
-experiments/issue-12-hidden-state-probes/artifacts/probes-sentence-end-qwen3-1.7b/report.json
-experiments/issue-12-hidden-state-probes/artifacts/probes-sentence-end-qwen3-1.7b/selected_probe.pt
+experiments/issue-12-hidden-state-probes/artifacts/probes-qwen3-1.7b/report.json
+experiments/issue-12-hidden-state-probes/artifacts/probes-qwen3-1.7b/selected_probe.pt
 ```
 
 Check the locked selection and headline metrics without modifying the report:
 
 ```bash
-.venv/bin/python -c "import json,pathlib; p=pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/probes-sentence-end-qwen3-1.7b/report.json'); r=json.loads(p.read_text()); print('selected',r['selected']); print('test',r['evaluation']['test']['overall']); print('shuffle',r['shuffled_label_control']['test']['overall'])"
+.venv/bin/python -c "import json,pathlib; p=pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/probes-qwen3-1.7b/report.json'); r=json.loads(p.read_text()); print('selected',r['selected']); print('test',r['evaluation']['test']['overall']); print('shuffle',r['shuffled_label_control']['test']['overall'])"
 ```
 
 Interpret this stage as linear decodability only. The test report must include
@@ -289,8 +289,9 @@ directory to fit source-condition probes and evaluate the complete 2x2 matrix:
 .venv/bin/python \
   experiments/issue-12-hidden-state-probes/analyze_fact_order_transfer.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-sentence-end-qwen3-1.7b \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-qwen3-1.7b \
+  --poolings last_token,mean_pool \
   --l2-values 0,1e-5,1e-4,1e-3 \
   --max-iter 100 \
   --device cpu \
@@ -303,7 +304,7 @@ validation rows. Neither test condition participates in selection. Print the
 four locked headline cells with:
 
 ```bash
-.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-sentence-end-qwen3-1.7b/report.json').read_text()); print('train\\test canonical shuffled'); [print(train, *[f\"{r['regimes'][train]['evaluation'][test]['overall']['mean_macro_accuracy']:.4f}\" for test in ('canonical','shuffled')]) for train in ('canonical','shuffled')]"
+.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-qwen3-1.7b/report.json').read_text()); print('train\\test canonical shuffled'); [print(train, *[f\"{r['regimes'][train]['evaluation'][test]['overall']['mean_macro_accuracy']:.4f}\" for test in ('canonical','shuffled')]) for train in ('canonical','shuffled')]"
 ```
 
 Interpret the matrix as follows:

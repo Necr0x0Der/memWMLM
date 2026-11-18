@@ -142,7 +142,11 @@ def test_feature_loader_joins_shards_by_id(tmp_path: Path) -> None:
     }
 
     layers, features = load_feature_split(
-        feature_dir, "train", manifest, ["first", "second"]
+        feature_dir,
+        "train",
+        manifest,
+        ["first", "second"],
+        ("last_token", "mean_pool", "sentence_end_mean"),
     )
 
     assert layers == (4, 8)
@@ -244,6 +248,11 @@ def test_end_to_end_selection_writes_locked_report(tmp_path: Path) -> None:
     )
     report = json.loads(report_path.read_text(encoding="utf-8"))
 
+    assert report["poolings"] == ["last_token", "mean_pool"]
+    assert {candidate["pooling"] for candidate in report["selection"]} == {
+        "last_token",
+        "mean_pool",
+    }
     assert report["selected"]["layer"] == 4
     assert report["evaluation"]["test"]["overall"]["mean_macro_accuracy"] == 1.0
     assert "group_bootstrap_95ci" in report["evaluation"]["test"]
@@ -337,6 +346,7 @@ def test_fact_order_transfer_separates_within_and_cross_condition_readouts(
     )
     report = json.loads(report_path.read_text(encoding="utf-8"))
 
+    assert report["poolings"] == ["last_token", "mean_pool"]
     matrix = {
         (train_order, test_order): report["regimes"][train_order]["evaluation"][
             test_order

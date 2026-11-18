@@ -160,6 +160,7 @@ python experiments/issue-12-hidden-state-probes/train_linear_probes.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
   --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
   --output-dir experiments/issue-12-hidden-state-probes/artifacts/probes-sentence-end-qwen3-1.7b \
+  --poolings last_token,mean_pool,sentence_end_mean \
   --l2-values 0,1e-5,1e-4,1e-3 \
   --device cpu
 ```
@@ -199,6 +200,7 @@ python experiments/issue-12-hidden-state-probes/analyze_fact_order_transfer.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
   --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-sentence-end-qwen3-1.7b \
   --output-dir experiments/issue-12-hidden-state-probes/artifacts/fact-order-transfer-sentence-end-qwen3-1.7b \
+  --poolings last_token,mean_pool,sentence_end_mean \
   --l2-values 0,1e-5,1e-4,1e-3 \
   --device cpu
 ```

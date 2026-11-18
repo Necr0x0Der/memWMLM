@@ -22,7 +22,8 @@ import torch
 from torch import Tensor
 
 from train_linear_probes import (
-    POOLINGS,
+    AVAILABLE_POOLINGS,
+    DEFAULT_POOLINGS,
     SPLITS,
     condition_metrics,
     encode_targets,
@@ -68,6 +69,7 @@ def subset_targets(targets: Mapping[str, Tensor], indices: Tensor) -> dict[str, 
 def load_inputs(
     dataset_dir: Path,
     feature_dir: Path,
+    poolings: Sequence[str] = DEFAULT_POOLINGS,
 ) -> tuple[
     dict[str, object],
     dict[str, object],
@@ -103,6 +105,7 @@ def load_inputs(
             split,
             feature_manifest["splits"][split],
             [str(row["id"]) for row in rows[split]],
+            poolings,
         )
         if layer_indices is None:
             layer_indices = split_layers
@@ -124,12 +127,13 @@ def select_configuration(
     l2_values: Sequence[float],
     max_iter: int,
     device: str,
+    poolings: Sequence[str] = DEFAULT_POOLINGS,
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
     """Select a source-condition probe without consulting either test condition."""
     selection: list[dict[str, object]] = []
     best_key: tuple[float, float, float] | None = None
     best_config: dict[str, object] | None = None
-    for pooling in POOLINGS:
+    for pooling in poolings:
         for layer_offset, layer in enumerate(layer_indices):
             train_x = train_features[pooling][:, layer_offset, :]
             validation_x = validation_features[pooling][:, layer_offset, :]
@@ -175,6 +179,7 @@ def run_fact_order_transfer(
     device: str,
     shuffle_seed: int,
     bootstrap_samples: int,
+    poolings: Sequence[str] = DEFAULT_POOLINGS,
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
@@ -182,9 +187,11 @@ def run_fact_order_transfer(
         raise ValueError("--l2-values must contain finite non-negative values")
     if bootstrap_samples <= 0:
         raise ValueError("bootstrap samples must be positive")
+    if not poolings or any(pooling not in AVAILABLE_POOLINGS for pooling in poolings):
+        raise ValueError(f"poolings must be drawn from {AVAILABLE_POOLINGS}")
 
     dataset_manifest, feature_manifest, rows, features, layer_indices = load_inputs(
-        dataset_dir, feature_dir
+        dataset_dir, feature_dir, poolings
     )
     probes = dataset_manifest.get("probes")
     if not isinstance(probes, dict) or not probes:
@@ -234,6 +241,7 @@ def run_fact_order_transfer(
                 l2_values,
                 max_iter,
                 device,
+                poolings,
             )
             layer_offset = layer_indices.index(int(selected_config["layer"]))
             pooling = str(selected_config["pooling"])
@@ -336,6 +344,7 @@ def run_fact_order_transfer(
             "dataset_manifest_sha256": sha256(dataset_dir / "manifest.json"),
             "feature_manifest_sha256": sha256(feature_dir / "manifest.json"),
             "layer_indices": list(layer_indices),
+            "poolings": list(poolings),
             "l2_values": list(l2_values),
             "max_iter": max_iter,
             "device": device,
@@ -365,6 +374,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--shuffle-seed", type=int, default=12012)
     parser.add_argument("--bootstrap-samples", type=int, default=2000)
+    parser.add_argument(
+        "--poolings",
+        default=",".join(DEFAULT_POOLINGS),
+        help=(
+            "Comma-separated pooling candidates; default: last_token,mean_pool. "
+            "sentence_end_mean is an optional diagnostic."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -379,6 +396,7 @@ def main() -> None:
         args.device,
         args.shuffle_seed,
         args.bootstrap_samples,
+        tuple(value.strip() for value in args.poolings.split(",") if value.strip()),
     )
     print(json.dumps({"report": str(report)}))
 

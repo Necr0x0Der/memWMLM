@@ -316,7 +316,74 @@ Interpret the matrix as follows:
 - strong diagonal and off-diagonal cells: one order-robust linear state is
   available.
 
-## 10. Run the full-context short-answer control
+## 10. Run the shallow MLP decodability follow-up
+
+This follow-up reuses the immutable `last_token` and `mean_pool` feature shards;
+Qwen is not loaded or trained again. Each state field receives an independent
+one-hidden-layer MLP (`2048 -> 128 -> classes`) with GELU and dropout. The
+selected result averages logits across five fixed random seeds. Interpret this
+as nonlinear decodability only, not causal state use.
+
+The shared run reports two comparisons: a validation-selected MLP over all
+candidate layers/poolings, and a matched MLP fixed to the linear probe's
+selected mean-pooled block-16 representation. Run on a GPU when available:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/train_mlp_probes.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/mlp-probes-qwen3-1.7b \
+  --poolings last_token,mean_pool \
+  --hidden-sizes 128 \
+  --weight-decays 1e-4,1e-3 \
+  --seeds 12012,12013,12014,12015,12016 \
+  --dropout 0.1 \
+  --learning-rate 1e-3 \
+  --batch-size 128 \
+  --max-epochs 200 \
+  --patience 20 \
+  --device cuda \
+  --bootstrap-samples 2000
+```
+
+Inspect the locked selected and matched results:
+
+```bash
+.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/mlp-probes-qwen3-1.7b/report.json').read_text()); print('selected',r['selected']); print('selected test',r['evaluation']['test']['overall']); print('matched',r['matched_linear_representation']['selected']); print('matched test',r['matched_linear_representation']['evaluation']['test']['overall']); print('control',r['shuffled_label_control']['test']['overall'])"
+```
+
+Then run the condition-specific 2x2 transfer matrix. The matched comparison
+uses the representations selected by the earlier linear runs: mean-pooled
+block 8 for canonical and block 28 for shuffled.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/analyze_mlp_fact_order_transfer.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/mlp-fact-order-transfer-qwen3-1.7b \
+  --poolings last_token,mean_pool \
+  --hidden-sizes 128 \
+  --weight-decays 1e-4,1e-3 \
+  --seeds 12012,12013,12014,12015,12016 \
+  --dropout 0.1 \
+  --learning-rate 1e-3 \
+  --batch-size 128 \
+  --max-epochs 200 \
+  --patience 20 \
+  --device cuda \
+  --bootstrap-samples 2000
+```
+
+The most informative comparison is shuffled-to-shuffled MLP performance versus
+its equally expressive shuffled-label control. Improvement there would support
+nonlinear state information in the frozen features; failure would show that a
+small MLP does not rescue shuffled state decoding. Because this follow-up was
+designed after inspecting the existing test split, treat it as exploratory and
+confirm any positive result on fresh held-out world states.
+
+## 11. Run the full-context short-answer control
 
 This control does not fit a probe. It gives frozen Qwen the complete situation
 and one fixed question through the standard Qwen chat template with thinking

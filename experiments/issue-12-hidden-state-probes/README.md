@@ -211,6 +211,21 @@ joint exact-state metrics, instruction breakdowns, group-bootstrap intervals,
 and the source-condition shuffled-label control. The original shared-probe
 report remains unchanged and should be retained as a separate result.
 
+## Shallow MLP probe follow-up
+
+`train_mlp_probes.py` and `analyze_mlp_fact_order_transfer.py` reuse the saved
+frozen `last_token` and `mean_pool` features. They replace each linear state
+head with an independent one-hidden-layer MLP, select configurations on
+validation only, ensemble five fixed seeds, and retain the same full-state,
+instruction, fact-order, bootstrap, and shuffled-label evaluations. Reports
+also include a matched comparison on the representations selected by the
+linear runs. See `RUNBOOK.md` for result-bearing commands.
+
+An MLP improvement establishes nonlinear decodability only. It does not show
+that Qwen exposes a ready compact state or causally uses that state. Since this
+follow-up was designed after inspection of the existing test split, positive
+findings require confirmation on fresh held-out worlds.
+
 ## Full-context Qwen QA control
 
 `evaluate_full_context_qa.py` asks the frozen Qwen model each manifest question

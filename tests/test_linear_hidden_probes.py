@@ -343,10 +343,17 @@ def test_fact_order_transfer_separates_within_and_cross_condition_readouts(
         device="cpu",
         shuffle_seed=12,
         bootstrap_samples=20,
+        candidate_layers=(4,),
     )
     report = json.loads(report_path.read_text(encoding="utf-8"))
 
     assert report["poolings"] == ["last_token", "mean_pool"]
+    assert report["candidate_layers"] == [4]
+    assert {
+        candidate["layer"]
+        for regime in report["regimes"].values()
+        for candidate in regime["selection"]
+    } == {4}
     matrix = {
         (train_order, test_order): report["regimes"][train_order]["evaluation"][
             test_order

@@ -120,6 +120,7 @@ def run_mlp_fact_order_transfer(
     device: str = "cpu",
     bootstrap_samples: int = 2000,
     bootstrap_seed: int = 12012,
+    candidate_layers: Sequence[int] | None = None,
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
@@ -130,6 +131,10 @@ def run_mlp_fact_order_transfer(
         raise ValueError("Dataset manifest contains no probe definitions")
     rows = {split: read_jsonl(dataset_dir / f"{split}.jsonl") for split in SPLITS}
     features: dict[str, dict[str, Tensor]] = {}
+    # The mean-pooled linear representations are retained as an additional
+    # diagnostic even when the selected MLP candidates are restricted to one
+    # last-token representation.
+    loaded_poolings = tuple(dict.fromkeys((*poolings, "mean_pool")))
     layer_indices: tuple[int, ...] | None = None
     for split in SPLITS:
         dataset_path = dataset_dir / f"{split}.jsonl"
@@ -140,7 +145,7 @@ def run_mlp_fact_order_transfer(
             split,
             feature_manifest["splits"][split],
             [str(row["id"]) for row in rows[split]],
-            poolings,
+            loaded_poolings,
         )
         if layer_indices is None:
             layer_indices = split_layers
@@ -149,6 +154,18 @@ def run_mlp_fact_order_transfer(
         features[split] = split_features
     if layer_indices is None:
         raise ValueError("No feature layers available")
+    selected_layers = tuple(
+        layer_indices if candidate_layers is None else candidate_layers
+    )
+    if not selected_layers:
+        raise ValueError("candidate layers must not be empty")
+    if len(set(selected_layers)) != len(selected_layers):
+        raise ValueError("candidate layers must not contain duplicates")
+    missing_layers = [layer for layer in selected_layers if layer not in layer_indices]
+    if missing_layers:
+        raise ValueError(
+            f"Candidate layers are absent from the feature shards: {missing_layers}"
+        )
     targets = {split: encode_targets(rows[split], probes) for split in SPLITS}
     class_counts = {name: len(definition["classes"]) for name, definition in probes.items()}
     training: dict[str, object] = {
@@ -159,7 +176,9 @@ def run_mlp_fact_order_transfer(
         "patience": patience,
         "device": device,
     }
-    representations = [(pooling, layer) for pooling in poolings for layer in layer_indices]
+    representations = [
+        (pooling, layer) for pooling in poolings for layer in selected_layers
+    ]
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}-", dir=output_dir.parent))
     try:
@@ -266,6 +285,7 @@ def run_mlp_fact_order_transfer(
             "dataset_manifest_sha256": sha256(dataset_dir / "manifest.json"),
             "feature_manifest_sha256": sha256(feature_dir / "manifest.json"),
             "layer_indices": list(layer_indices),
+            "candidate_layers": list(selected_layers),
             "poolings": list(poolings),
             "hidden_sizes": list(hidden_sizes),
             "weight_decays": list(weight_decays),
@@ -296,6 +316,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--feature-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--poolings", default=",".join(DEFAULT_POOLINGS))
+    parser.add_argument(
+        "--layers",
+        default="",
+        help=(
+            "Optional comma-separated candidate block numbers. Empty means all "
+            "layers stored in the feature shards."
+        ),
+    )
     parser.add_argument("--hidden-sizes", default="128")
     parser.add_argument("--weight-decays", default="1e-4,1e-3")
     parser.add_argument("--seeds", default="12012,12013,12014,12015,12016")
@@ -328,6 +356,7 @@ def main() -> None:
         args.device,
         args.bootstrap_samples,
         args.bootstrap_seed,
+        _ints(args.layers) or None,
     )
     print(json.dumps({"report": str(report)}))
 

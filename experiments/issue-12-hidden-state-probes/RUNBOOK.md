@@ -383,6 +383,61 @@ small MLP does not rescue shuffled state decoding. Because this follow-up was
 designed after inspecting the existing test split, treat it as exploratory and
 confirm any positive result on fresh held-out world states.
 
+### Fixed last-token block-20 linear/MLP control
+
+The selected shuffled MLP used the last token at block 20, whereas the selected
+shuffled linear probe used mean pooling at block 28. To separate the probe-head
+effect from representation selection, rerun both protocols with the candidate
+representation locked to `last_token`, block 20. Validation still selects only
+the head regularization; it cannot switch pooling or layer.
+
+Run the fixed linear probe on CPU:
+
+```bash
+.venv/bin/python \
+  experiments/issue-12-hidden-state-probes/analyze_fact_order_transfer.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fixed-last-token-20-linear-qwen3-1.7b \
+  --poolings last_token \
+  --layers 20 \
+  --l2-values 0,1e-5,1e-4,1e-3 \
+  --max-iter 100 \
+  --device cpu \
+  --shuffle-seed 12012 \
+  --bootstrap-samples 2000
+```
+
+Run the fixed MLP on a GPU:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/analyze_mlp_fact_order_transfer.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --feature-dir experiments/issue-12-hidden-state-probes/artifacts/features-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/fixed-last-token-20-mlp-qwen3-1.7b \
+  --poolings last_token \
+  --layers 20 \
+  --hidden-sizes 128 \
+  --weight-decays 1e-4,1e-3 \
+  --seeds 12012,12013,12014,12015,12016 \
+  --dropout 0.1 \
+  --learning-rate 1e-3 \
+  --batch-size 128 \
+  --max-epochs 200 \
+  --patience 20 \
+  --device cuda \
+  --bootstrap-samples 2000
+```
+
+Compare the `shuffled -> shuffled` cell in the two reports. The selected
+linear run originally gave 52.28% validation macro accuracy at mean-pooled
+block 28. Last-token block 20 was nearly tied at 52.06%, so its rejection was
+not anomalous: the validation rule selected the slightly higher score, with
+exact-state accuracy breaking no tie. By contrast, the MLP obtained 63.55%
+validation macro accuracy at last-token block 20. The fixed test comparison
+determines whether that gap survives when both heads receive the same vector.
+
 ## 11. Run the full-context short-answer control
 
 This control does not fit a probe. It gives frozen Qwen the complete situation

@@ -128,13 +128,16 @@ def select_configuration(
     max_iter: int,
     device: str,
     poolings: Sequence[str] = DEFAULT_POOLINGS,
+    candidate_layers: Sequence[int] | None = None,
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
     """Select a source-condition probe without consulting either test condition."""
     selection: list[dict[str, object]] = []
     best_key: tuple[float, float, float] | None = None
     best_config: dict[str, object] | None = None
+    layers = tuple(layer_indices if candidate_layers is None else candidate_layers)
     for pooling in poolings:
-        for layer_offset, layer in enumerate(layer_indices):
+        for layer in layers:
+            layer_offset = layer_indices.index(layer)
             train_x = train_features[pooling][:, layer_offset, :]
             validation_x = validation_features[pooling][:, layer_offset, :]
             for l2 in l2_values:
@@ -180,6 +183,7 @@ def run_fact_order_transfer(
     shuffle_seed: int,
     bootstrap_samples: int,
     poolings: Sequence[str] = DEFAULT_POOLINGS,
+    candidate_layers: Sequence[int] | None = None,
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
@@ -193,6 +197,18 @@ def run_fact_order_transfer(
     dataset_manifest, feature_manifest, rows, features, layer_indices = load_inputs(
         dataset_dir, feature_dir, poolings
     )
+    selected_layers = tuple(
+        layer_indices if candidate_layers is None else candidate_layers
+    )
+    if not selected_layers:
+        raise ValueError("candidate layers must not be empty")
+    if len(set(selected_layers)) != len(selected_layers):
+        raise ValueError("candidate layers must not contain duplicates")
+    missing_layers = [layer for layer in selected_layers if layer not in layer_indices]
+    if missing_layers:
+        raise ValueError(
+            f"Candidate layers are absent from the feature shards: {missing_layers}"
+        )
     probes = dataset_manifest.get("probes")
     if not isinstance(probes, dict) or not probes:
         raise ValueError("Dataset manifest contains no probe definitions")
@@ -242,6 +258,7 @@ def run_fact_order_transfer(
                 max_iter,
                 device,
                 poolings,
+                selected_layers,
             )
             layer_offset = layer_indices.index(int(selected_config["layer"]))
             pooling = str(selected_config["pooling"])
@@ -344,6 +361,7 @@ def run_fact_order_transfer(
             "dataset_manifest_sha256": sha256(dataset_dir / "manifest.json"),
             "feature_manifest_sha256": sha256(feature_dir / "manifest.json"),
             "layer_indices": list(layer_indices),
+            "candidate_layers": list(selected_layers),
             "poolings": list(poolings),
             "l2_values": list(l2_values),
             "max_iter": max_iter,
@@ -382,6 +400,14 @@ def parse_args() -> argparse.Namespace:
             "sentence_end_mean is an optional diagnostic."
         ),
     )
+    parser.add_argument(
+        "--layers",
+        default="",
+        help=(
+            "Optional comma-separated candidate block numbers. Empty means all "
+            "layers stored in the feature shards."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -397,6 +423,8 @@ def main() -> None:
         args.shuffle_seed,
         args.bootstrap_samples,
         tuple(value.strip() for value in args.poolings.split(",") if value.strip()),
+        tuple(int(value.strip()) for value in args.layers.split(",") if value.strip())
+        or None,
     )
     print(json.dumps({"report": str(report)}))
 

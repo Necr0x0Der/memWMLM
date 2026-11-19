@@ -132,6 +132,7 @@ def test_mlp_shared_and_transfer_protocols_write_reports(tmp_path: Path) -> None
             {
                 "ids": [str(row["id"]) for row in rows],
                 "layer_indices": torch.tensor([8, 28], dtype=torch.int16),
+                "last_token": tensor * 0.5,
                 "mean_pool": tensor,
             },
             shard,
@@ -183,7 +184,7 @@ def test_mlp_shared_and_transfer_protocols_write_reports(tmp_path: Path) -> None
         dataset_dir,
         feature_dir,
         tmp_path / "transfer",
-        poolings=("mean_pool",),
+        poolings=("last_token",),
         hidden_sizes=(2,),
         weight_decays=(0.0,),
         seeds=(7,),
@@ -193,8 +194,19 @@ def test_mlp_shared_and_transfer_protocols_write_reports(tmp_path: Path) -> None
         max_epochs=3,
         patience=1,
         bootstrap_samples=5,
+        candidate_layers=(8,),
     )
     transfer = json.loads(transfer_path.read_text())
+    assert transfer["poolings"] == ["last_token"]
+    assert transfer["candidate_layers"] == [8]
+    assert {
+        candidate["layer"]
+        for regime in transfer["regimes"].values()
+        for candidate in regime["selection"]
+    } == {8}
+    assert {
+        regime["selected"]["pooling"] for regime in transfer["regimes"].values()
+    } == {"last_token"}
     assert set(transfer["regimes"]) == {"canonical", "shuffled"}
     assert set(transfer["regimes"]["canonical"]["evaluation"]) == {
         "canonical",

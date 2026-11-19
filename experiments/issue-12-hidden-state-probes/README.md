@@ -219,7 +219,8 @@ head with an independent one-hidden-layer MLP, select configurations on
 validation only, ensemble five fixed seeds, and retain the same full-state,
 instruction, fact-order, bootstrap, and shuffled-label evaluations. Reports
 also include a matched comparison on the representations selected by the
-linear runs. See `RUNBOOK.md` for result-bearing commands.
+linear runs. See [`RESULTS-MLP.md`](RESULTS-MLP.md) for the findings and
+`RUNBOOK.md` for result-bearing commands.
 
 An MLP improvement establishes nonlinear decodability only. It does not show
 that Qwen exposes a ready compact state or causally uses that state. Since this

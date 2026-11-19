@@ -221,7 +221,13 @@ def save_ensemble(
             "config": dict(config),
             "models": [
                 {
-                    "state_dict": fitted.model.cpu().state_dict(),
+                    # Copy checkpoint tensors to CPU without mutating the live
+                    # model. Evaluation may still need that model on CUDA after
+                    # the checkpoint is written.
+                    "state_dict": {
+                        name: tensor.detach().cpu()
+                        for name, tensor in fitted.model.state_dict().items()
+                    },
                     "mean": fitted.mean.cpu(),
                     "scale": fitted.scale.cpu(),
                     "best_epoch": fitted.best_epoch,

@@ -12,9 +12,12 @@ EXPERIMENT_DIR = Path(__file__).resolve().parents[1] / "experiments" / "issue-12
 sys.path.insert(0, str(EXPERIMENT_DIR))
 
 from mlp_probe_utils import (  # noqa: E402
+    FittedMLP,
+    MLPProbeBank,
     fit_ensemble,
     predictions_from_logits,
     ensemble_logits,
+    save_ensemble,
 )
 from train_linear_probes import fit_probes, predict  # noqa: E402
 from train_mlp_probes import run_mlp_experiment  # noqa: E402
@@ -64,6 +67,28 @@ def test_shallow_mlp_learns_xor_that_linear_probe_cannot() -> None:
 
     assert linear_accuracy <= 0.5
     assert mlp_accuracy == 1.0
+
+
+def test_saving_ensemble_does_not_move_live_model_to_cpu(
+    tmp_path: Path, monkeypatch: object
+) -> None:
+    model = MLPProbeBank(2, 4, {"state": 2}, dropout=0.0)
+    fitted = FittedMLP(
+        model=model,
+        mean=torch.zeros(2),
+        scale=torch.ones(2),
+        best_epoch=1,
+        seed=7,
+    )
+
+    def forbidden_cpu_call() -> None:
+        raise AssertionError("save_ensemble must not mutate the live model device")
+
+    monkeypatch.setattr(model, "cpu", forbidden_cpu_call)  # type: ignore[attr-defined]
+    save_ensemble(tmp_path / "ensemble.pt", [fitted], {"pooling": "mean_pool"})
+
+    checkpoint = torch.load(tmp_path / "ensemble.pt", weights_only=True)
+    assert checkpoint["models"][0]["state_dict"]
 
 
 def _sha256(path: Path) -> str:

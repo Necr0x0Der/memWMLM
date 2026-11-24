@@ -458,3 +458,51 @@ remain at chance, the model can derive answers from the token trace at question
 time without exposing a linearly readable prepared state. If both are weak,
 the shuffled task itself is not reliably solved by this model and the probe
 failure cannot isolate state preparation.
+
+### 10.1 Separate thinking-enabled control
+
+Pass `--enable-thinking` and increase `--max-new-tokens` to allow reasoning
+(the limit includes both reasoning and the final answer). This is a separate
+protocol: keep its output separate from the non-thinking baseline. Greedy
+decoding remains unchanged to isolate the thinking-mode change.
+The parser scores only text after `</think>`; unfinished reasoning is an invalid
+answer, even if it contains `FINAL:`. Raw responses retain reasoning and special
+tokens for auditing. The report records `enable_thinking: true`.
+
+From the repository root, run shuffled:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-shuffled-thinking-qwen3-1.7b \
+  --fact-order shuffled \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --splits validation,test \
+  --device cuda --model-dtype bfloat16 --batch-size 4 \
+  --max-length 256 --max-new-tokens 2048 --enable-thinking \
+  --bootstrap-samples 2000 --bootstrap-seed 12013
+```
+
+Then run canonical separately:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-canonical-thinking-qwen3-1.7b \
+  --fact-order canonical \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --splits validation,test \
+  --device cuda --model-dtype bfloat16 --batch-size 4 \
+  --max-length 256 --max-new-tokens 2048 --enable-thinking \
+  --bootstrap-samples 2000 --bootstrap-seed 12013
+```
+
+For Qwen3-4B, replace the model with `Qwen/Qwen3-4B`, the revision with
+`1cfa9a7208912126459214e8b04321603b3df60c`, and the output suffix with
+`qwen3-4b`. Keep the same generation budget for both models and fact orders.
+A 2048-token budget is a starting setting, not a guarantee that reasoning will
+finish. Check invalid answers and raw responses for missing `</think>`.

@@ -3,7 +3,7 @@
 
 For every fixed question, the model receives the complete situation and an
 instruction to answer with exactly one allowed short answer through Qwen's chat
-template with thinking disabled. Greedy generation is parsed from an explicit
+template with thinking disabled by default. Greedy generation is parsed from an explicit
 ``FINAL: <answer>`` marker. No probe is trained; ground truth is used only to
 compute metrics.
 """
@@ -77,8 +77,16 @@ def build_prompt(
     )
 
 
-def parse_short_answer(response: str, answers: Sequence[str]) -> int | None:
+def parse_short_answer(
+    response: str, answers: Sequence[str], enable_thinking: bool = False,
+) -> int | None:
     """Prefer the last FINAL marker; accept an unambiguous leading short answer."""
+    if enable_thinking:
+        # The opening <think> is already in the prompt. Never score reasoning,
+        # including a FINAL marker produced before an exhausted token budget.
+        if "</think>" not in response:
+            return None
+        response = response.rsplit("</think>", 1)[1]
     allowed = {answer.casefold(): index for index, answer in enumerate(answers)}
     final_matches = re.findall(
         r"(?im)^\s*(?:\*\*)?FINAL\s*:\s*(?:\*\*)?([A-Za-z]+)\b",
@@ -106,6 +114,7 @@ def generate_answers(
     max_length: int,
     max_new_tokens: int,
     device: str,
+    enable_thinking: bool = False,
 ) -> tuple[Tensor, list[str]]:
     if batch_size <= 0 or max_length <= 0 or max_new_tokens <= 0:
         raise ValueError("batch_size, max_length, and max_new_tokens must be positive")
@@ -146,14 +155,14 @@ def generate_answers(
         continuation = generated[:, model_inputs["input_ids"].shape[1] :]
         batch_responses = tokenizer.batch_decode(
             continuation,
-            skip_special_tokens=True,
+            skip_special_tokens=not enable_thinking,
             clean_up_tokenization_spaces=False,
         )
         responses.extend(batch_responses)
         predictions.append(
             torch.tensor(
                 [
-                    parsed if (parsed := parse_short_answer(response, answers)) is not None else -1
+                    parsed if (parsed := parse_short_answer(response, answers, enable_thinking)) is not None else -1
                     for response in batch_responses
                 ],
                 dtype=torch.long,
@@ -228,6 +237,7 @@ def run_full_context_qa(
     bootstrap_samples: int,
     bootstrap_seed: int,
     fact_order: str = "all",
+    enable_thinking: bool = False,
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
@@ -266,7 +276,7 @@ def run_full_context_qa(
     tokenizer.padding_side = "left"
     if not getattr(tokenizer, "chat_template", None):
         raise RuntimeError("Qwen tokenizer has no chat template")
-    formatter = QwenChatPromptFormatter(tokenizer)
+    formatter = QwenChatPromptFormatter(tokenizer, enable_thinking=enable_thinking)
     choices: dict[str, dict[str, object]] = {}
     for probe_name, definition in probes.items():
         answers = [answer_text(value) for value in definition["classes"]]
@@ -300,6 +310,7 @@ def run_full_context_qa(
                     max_length,
                     max_new_tokens,
                     device,
+                    enable_thinking=enable_thinking,
                 )
                 split_predictions[probe_name] = predictions
                 target_labels = targets[split][probe_name]
@@ -376,10 +387,11 @@ def run_full_context_qa(
                 "task": "full situation plus fixed question",
                 "decision_rule": (
                     "last FINAL: <answer> marker, with a leading short-answer fallback"
+                    + ("; only after </think>, missing closing tag is invalid" if enable_thinking else "")
                 ),
                 "generation": True,
                 "chat_template_applied": True,
-                "enable_thinking": False,
+                "enable_thinking": enable_thinking,
                 "do_sample": False,
                 "num_beams": 1,
                 "max_new_tokens": max_new_tokens,
@@ -409,7 +421,7 @@ def run_full_context_qa(
                 "max_length": max_length,
                 "truncation_policy": "fail if any prompt reaches max_length",
                 "chat_template_applied": True,
-                "enable_thinking": False,
+                "enable_thinking": enable_thinking,
             },
             "choices": choices,
             "dataset": {
@@ -461,6 +473,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--max-length", type=int, default=256)
     parser.add_argument("--max-new-tokens", type=int, default=64)
+    parser.add_argument(
+        "--enable-thinking", action="store_true",
+        help="Enable Qwen reasoning; use a larger --max-new-tokens budget (e.g. 2048).",
+    )
     parser.add_argument("--device", default="cuda")
     parser.add_argument(
         "--model-dtype",
@@ -481,6 +497,7 @@ def main() -> None:
     args = parse_args()
     report = run_full_context_qa(
         fact_order=args.fact_order,
+        enable_thinking=args.enable_thinking,
         dataset_dir=args.dataset_dir,
         output_dir=args.output_dir,
         model_name=args.model,

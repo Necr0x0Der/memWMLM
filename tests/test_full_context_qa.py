@@ -46,3 +46,31 @@ def test_v2_qa_agrees_with_scoring_and_presented_fact_order():
     bad['fact_order'] = 'shuffled' if bad['fact_order'] == 'canonical' else 'canonical'
     with pytest.raises(ValueError, match='Fact order/text mismatch'):
         validate_qa_rows([bad], manifest)
+
+
+def test_thinking_parser_ignores_reasoning_and_rejects_unfinished_thought():
+    from evaluate_full_context_qa import parse_short_answer
+
+    answers = ['No', 'Yes']
+    assert parse_short_answer('FINAL: Yes\n</think>\nFINAL: No', answers, True) == 0
+    assert parse_short_answer('FINAL: Yes\nStill thinking', answers, True) is None
+    assert parse_short_answer('<think>FINAL: Yes</think>\n', answers, True) is None
+    assert parse_short_answer('Reasoning</think>\nFINAL: Yes<|im_end|>', answers, True) == 1
+    assert parse_short_answer('Reasoning</think>\nNo.', answers, True) == 0
+    assert parse_short_answer('FINAL: Yes', answers) == 1
+
+
+@pytest.mark.parametrize('enabled', [False, True])
+def test_formatter_passes_thinking_mode(enabled):
+    from memwmlm.models.qwen import QwenChatPromptFormatter
+
+    class Tokenizer:
+        chat_template = 'template'
+
+        def apply_chat_template(self, messages, **kwargs):
+            assert messages == [{'role': 'user', 'content': 'situation'}]
+            assert kwargs['enable_thinking'] is enabled
+            assert kwargs['add_generation_prompt'] is True
+            return 'formatted'
+
+    assert QwenChatPromptFormatter(Tokenizer(), enable_thinking=enabled)('situation') == 'formatted'

@@ -240,8 +240,8 @@ question, expected answer, and dataset hashes were checked against the database.
 
 | Model | Fact order | Max new tokens | Validation macro | Validation joint exact | Test macro | Test joint exact |
 |---|---|---:|---:|---:|---:|---:|
-| Qwen3-1.7B | Canonical | 64 | 51.03% | 0.00% (0/288) | 51.22% | 0.00% (0/384) |
-| Qwen3-1.7B | Shuffled | 64 | 53.39% | 0.69% (2/288) | 54.10% | 1.82% (7/384) |
+| Qwen3-1.7B | Canonical | 2048 | 51.03% | 0.00% (0/288) | 51.22% | 0.00% (0/384) |
+| Qwen3-1.7B | Shuffled | 2048 | 53.39% | 0.69% (2/288) | 54.10% | 1.82% (7/384) |
 | Qwen3-4B | Canonical | 2048 | 94.01% | 70.49% (203/288) | 93.07% | 64.58% (248/384) |
 | Qwen3-4B | Shuffled | 2048 | 96.99% | 79.51% (229/288) | 95.00% | 73.96% (284/384) |
 
@@ -259,10 +259,17 @@ for the order contrast.
 
 ### Generation budget and formatting
 
-The prompt and scoring rules are shared, but the current cross-model comparison
-is **not a fully matched protocol**: 1.7B uses a 64-token generation budget and
-batch size 16, while 4B uses 2048 tokens and batch size 8. A 1.7B run with the
-same larger generation budget is still needed to isolate model-size effects.
+The current runs now share the prompt, scoring rule, greedy generation,
+`enable_thinking=false`, and a 2048-token output budget. Batch sizes remain
+16 for 1.7B and 8 for 4B.
+
+The new 1.7B runs at 2048 tokens reproduce the previously recorded 64-token
+validation/test macro and joint-exact metrics in both fact orders, with zero
+invalid answers. They continue to emit short answers; increasing the available
+budget does not itself induce longer reasoning. The 1.7B–4B performance gap
+therefore cannot be attributed to the previous difference in output-token
+limits. This is a conclusion about the tested answer protocol, not every
+possible prompting or thinking configuration for 1.7B.
 
 The earlier 4B shuffled run with 64 tokens had 2,655/2,688 invalid test
 responses and 1.04% test macro accuracy. Its raw outputs typically stopped
@@ -355,16 +362,19 @@ The appropriate conclusion is therefore:
 > representation.
 
 The new 4B control narrows the interpretation: the shuffled task can be solved
-from full context by this larger model with a longer output budget. It does not
+from full context by 4B under the same 2048-token output budget now tested
+on 1.7B. It does not
 turn the 1.7B shuffled probe failure into evidence of absent state. Probes must
 be measured on 4B itself before comparing its native QA with its decodability.
 
-The hypothesis that a model encodes useful information but cannot reliably
-apply it remains consistent with issue #12. Strong canonical 1.7B probes and
-weak native QA distinguish external linear readability from native answer
-behavior. They do not, without surface baselines and causal interventions,
-prove a coherent world model that the model itself can use. Full-context 4B
-reasoning may recompute the answer from the source trace.
+The strategic question in issue #12 remains whether hidden features already
+provide adequate world-state/content representations, or retain a source trace
+from which attention can later re-derive the needed information. Strong
+canonical 1.7B probes establish external linear readability of target relations,
+but do not distinguish a prepared state from features of canonical textual
+regularity. Weak native QA does not settle that distinction. Surface baselines,
+order-transfer controls, and source-removal/state interventions remain necessary;
+full-context 4B generation may recompute answers from the original token trace.
 
 ## Limitations
 
@@ -381,9 +391,10 @@ reasoning may recompute the answer from the source trace.
    accuracy alone.
 4. The run tests decodability, not causal use. It does not remove source tokens
    and feed a hidden-state bottleneck to a frozen reader.
-5. Native QA is weak for 1.7B at 64 tokens but strong for 4B at 2048 tokens.
-   Generation budgets are not matched across models, and no 4B probes have
-   been reported here. Lexical/surface baselines are still missing.
+5. Native QA remains weak for 1.7B and strong for 4B with matched 2048-token
+   budgets and thinking disabled. No 4B probes have been reported here, so
+   this does not resolve the representation question within that model.
+   Lexical/surface baselines are still missing.
 6. The result directories currently preserve the reports and selected probes,
    but not the feature manifest or feature shards needed to audit extraction
    provenance and reproduce fitting from the saved activations.
@@ -393,8 +404,7 @@ reasoning may recompute the answer from the source trace.
 1. Run a lexical/surface baseline and, as a secondary diagnostic, a small MLP
    probe on the same frozen features. The MLP must remain clearly labelled as
    nonlinear decodability rather than evidence for a compact linear state.
-2. Match the 1.7B/4B generation budgets and apply any parser correction
-   uniformly, retaining original reports. Run situation-only feature extraction
+2. Apply any parser correction uniformly, retaining original reports. Run situation-only feature extraction
    and probes on 4B, then compare decoding and full-context QA within that
    same model. Keep thinking-enabled runs as a separate protocol.
 3. Expand the synthetic task so validation and test contain substantially more

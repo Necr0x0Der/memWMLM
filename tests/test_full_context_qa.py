@@ -62,7 +62,7 @@ def test_thinking_parser_ignores_reasoning_and_rejects_unfinished_thought():
 
 @pytest.mark.parametrize('enabled', [False, True])
 def test_formatter_passes_thinking_mode(enabled):
-    from memwmlm.models.qwen import QwenChatPromptFormatter
+    from evaluate_full_context_qa import format_qa_chat
 
     class Tokenizer:
         chat_template = 'template'
@@ -73,4 +73,4 @@ def test_formatter_passes_thinking_mode(enabled):
             assert kwargs['add_generation_prompt'] is True
             return 'formatted'
 
-    assert QwenChatPromptFormatter(Tokenizer(), enable_thinking=enabled)('situation') == 'formatted'
+    assert format_qa_chat('situation', Tokenizer(), enable_thinking=enabled) == 'formatted'

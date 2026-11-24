@@ -1,13 +1,23 @@
-# Results: linear probes on Qwen3-1.7B hidden features
+# Results: hidden-state probes and full-context Qwen QA
 
-This document summarizes the issue #12 shared-probe run, the subsequent
-fact-order transfer diagnostic, and the frozen-model full-context QA control.
-The underlying machine-readable results are:
+Updated 2026-11-25. The probe and fact-order transfer results below are for
+**Qwen3-1.7B only**. Full-context QA now includes Qwen3-1.7B and Qwen3-4B,
+with separate canonical and shuffled runs.
 
-- `artifacts/probes-qwen3-1.7b/report.json`;
-- `artifacts/fact-order-transfer-qwen3-1.7b/report.json`;
-- `artifacts/full-context-final-qwen3-1.7b/report.json` and its auditable raw
-  generations in `responses.jsonl`.
+Archived probe artifacts:
+
+- `artifacts/prev/probes-qwen3-1.7b/report.json`;
+- `artifacts/prev/fact-order-transfer-qwen3-1.7b/report.json`;
+- the original combined QA run at
+  `artifacts/prev/full-context-final-qwen3-1.7b/report.json`.
+
+The current full-context results come from `report.json` and `responses.jsonl`
+in each of these directories:
+
+- `artifacts/full-context-canonical-qwen3-1.7b/`;
+- `artifacts/full-context-shuffled-qwen3-1.7b/`;
+- `artifacts/full-context-canonical-qwen3-4b/`;
+- `artifacts/full-context-shuffled-qwen3-4b/`.
 
 ## Experimental setup
 
@@ -26,10 +36,17 @@ The underlying machine-readable results are:
   4 independent layouts and 768 rendered examples.
 - Confidence intervals: 95% percentile bootstrap over abstract-layout groups.
 
-The dataset manifest SHA-256 recorded by the result matches the local dataset:
+The dataset manifest SHA-256 recorded by the probe result matches the archived
+`artifacts/prev/db_prev/manifest.json`:
 `c308a3b59c0ebe9c714cfe756bba9f5cbf1c9269a329f6d6f500c0dca569e39f`.
 The recorded feature-manifest SHA-256 is
 `bdac9fca29b594a57cccb7f48df66762e7c52b26cb9e44ae2ca2918c53ed3198`.
+
+Current QA uses the v2 export in `artifacts/db`. Its JSONL hashes match all four
+QA reports. The `id`, `text`, `targets`, and `group_id` fields are identical
+between the archived and current database across all three splits; v2 adds
+explicit fact lists and QA metadata. The different export hashes do not imply
+a change to the situations or labels evaluated here.
 
 ## Conditions
 
@@ -202,67 +219,101 @@ with noise rather than a reliable instruction effect.
 
 ## Full-context frozen-model QA control
 
-This control tests whether the frozen model can answer the seven fixed
-questions when the complete situation remains in its token context. It does
-not train a probe. Each prompt is rendered with Qwen's chat template, thinking
-is disabled, and the model generates greedily. The required answer is
-`FINAL: <answer>`; ground truth is consulted only after generation to compute
-metrics, and no answer is inferred from logits.
+Each prompt contains the full situation and one fixed question, rendered with
+Qwen's chat template. Both models are frozen, `enable_thinking=false`, and
+generation is greedy. The requested output is `FINAL: <answer>`. Ground truth
+is used only for evaluation. The scorer accepts the last recognized FINAL
+marker, with a leading short-answer fallback; invalid responses count as errors.
 
-The successful run used result schema
-`spatial-full-context-final-answer-v3` at repository commit `6ec85df`. All
-9,408 validation and test question responses were parsed successfully, so the
-scores below are not artifacts of rejected answer formatting.
+All four current reports record schema `spatial-full-context-final-answer-v3`
+and repository commit `85efb9a2a036a3652edb0d6c56bedc684029744d`.
+Model revisions are:
 
-### Test results
+- Qwen3-1.7B: `70d244cc86ccca08cf5af4e1e306ecf908b1ad5e`;
+- Qwen3-4B: `1cfa9a7208912126459214e8b04321603b3df60c`.
 
-| Fact order | Situations | Question responses | Mean macro accuracy | Joint exact state |
-|---|---:|---:|---:|---:|
-| Canonical | 384 | 2,688 | 51.2% | 0.0% (0/384) |
-| Shuffled | 384 | 2,688 | 54.1% | 1.8% (7/384) |
-| All | 768 | 5,376 | 52.7% | 0.9% (7/768) |
+Each run has 288 validation and 384 test situations, covering all four
+instruction variants: 2,016 validation and 2,688 test responses. Situation,
+question, expected answer, and dataset hashes were checked against the database.
 
-For all test examples, the 95% group-bootstrap intervals are:
+### Recorded results
 
-- mean macro accuracy: 50.0% to 56.9%;
-- joint exact-state accuracy: 0.5% to 1.4%.
+| Model | Fact order | Max new tokens | Validation macro | Validation joint exact | Test macro | Test joint exact |
+|---|---|---:|---:|---:|---:|---:|
+| Qwen3-1.7B | Canonical | 64 | 51.03% | 0.00% (0/288) | 51.22% | 0.00% (0/384) |
+| Qwen3-1.7B | Shuffled | 64 | 53.39% | 0.69% (2/288) | 54.10% | 1.82% (7/384) |
+| Qwen3-4B | Canonical | 2048 | 94.01% | 70.49% (203/288) | 93.07% | 64.58% (248/384) |
+| Qwen3-4B | Shuffled | 2048 | 96.99% | 79.51% (229/288) | 95.00% | 73.96% (284/384) |
 
-Validation was similar: 52.2% mean macro accuracy and 0.3% joint exact state.
-The corresponding canonical and shuffled validation macro scores were 51.0%
-and 53.4%. The reference mean macro accuracy is 47.6%, as defined above.
+These are the original report metrics, without post-hoc parser changes.
+The 4B test group-bootstrap 95% intervals are:
 
-The modest aggregate excess over that reference is not evidence that the
-model recovered the complete state. Canonical pairwise behavior was dominated
-by a strong `Yes` bias: for three questions the model answered `FINAL: Yes`
-on all 384 test situations, and for the other three binary questions it did so
-on 371 to 380 situations. Consequently, canonical pairwise macro accuracies
-were only 50.0% to 51.8%. The canonical leftmost-person probe reached 53.8%
-macro accuracy, but no canonical situation had all seven answers correct.
-
-Shuffling produced less degenerate answer distributions and 52.6% to 58.3%
-macro accuracy on the binary questions, but leftmost-person macro accuracy was
-43.1% and only seven shuffled situations had a completely correct state. The
-small canonical/shuffled difference should not be interpreted as evidence
-that shuffling helps: no confidence interval for that paired contrast was
-computed, and both conditions have very weak exact-state performance.
-
-Instructions did not materially change the result:
-
-| Instruction | Mean macro accuracy | Joint exact state |
+| Fact order | Mean macro accuracy | Joint exact state |
 |---|---:|---:|
-| No instruction | 53.1% | 1.6% |
-| `Imagine the situation.` | 53.0% | 0.0% |
-| `Think about where Mary is.` | 52.4% | 1.0% |
-| `Think about who is where.` | 52.2% | 1.0% |
+| Canonical | 89.36–96.80% | 44.79–86.98% |
+| Shuffled | 92.11–97.84% | 61.46–88.54% |
 
-The full-context control therefore does not show that Qwen3-1.7B reliably
-solves this spatial QA task at answer time. In particular, the shuffled probe
-failure cannot be interpreted in isolation as a failure to prepare a state
-that the model would otherwise use successfully: native full-context QA is
-also weak. Conversely, canonical hidden features are highly linearly
-decodable even though the model's own canonical answers are nearly at the
-reference level. Linear decodability and native answer behavior are therefore
-clearly separated in this experiment.
+Only four independent test layouts underlie these scores. The observed
+shuffled advantage is descriptive; no paired group-level interval was computed
+for the order contrast.
+
+### Generation budget and formatting
+
+The prompt and scoring rules are shared, but the current cross-model comparison
+is **not a fully matched protocol**: 1.7B uses a 64-token generation budget and
+batch size 16, while 4B uses 2048 tokens and batch size 8. A 1.7B run with the
+same larger generation budget is still needed to isolate model-size effects.
+
+The earlier 4B shuffled run with 64 tokens had 2,655/2,688 invalid test
+responses and 1.04% test macro accuracy. Its raw outputs typically stopped
+mid-explanation without a FINAL answer. That run was inspected before the
+current 2048-token artifacts replaced it at the same directory; these older
+numbers are historical observations, not metrics recoverable from the current
+report. The 2048-token run shows that the earlier score was dominated by the
+answer-generation budget, not evidence that 4B could not solve the task.
+Future reruns should use distinct output directories for each budget.
+
+Thinking is disabled in all reports above, but 4B still writes explanations
+in ordinary output text. Disabling the template's thinking mode does not mean
+that every response is a single short answer.
+
+| Model / order | Invalid validation responses | Invalid test responses |
+|---|---:|---:|
+| 1.7B / canonical | 0/2,016 | 0/2,688 |
+| 1.7B / shuffled | 0/2,016 | 0/2,688 |
+| 4B / canonical | 16/2,016 | 26/2,688 |
+| 4B / shuffled | 30/2,016 | 51/2,688 |
+
+Some remaining 4B invalids are parser limitations: formats such as
+`### FINAL: Yes` and `**Answer: FINAL: No**` are rejected. A diagnostic scan
+found recoverable allowed FINAL answers in all 16 canonical validation
+invalids and 20/26 canonical test invalids, and in all 30 shuffled validation
+invalids and 42/51 shuffled test invalids. This does not mean those recovered
+answers are all correct. The official scores above retain the original parser;
+any revised scoring should be versioned and applied uniformly to every run.
+
+### Answer behavior
+
+For 1.7B, canonical test answers show a strong Yes bias: 2,280/2,304 binary
+answers are Yes (98.96%). All 384 canonical situations and 370/384 shuffled
+situations have at least one inconsistent reverse pair. The lack of rejected
+formats does not explain this model's weak scores under the tested protocol.
+
+For 4B, among situations where all seven answers were parsed, 95/360 canonical
+and 32/338 shuffled test situations contain an inconsistent reverse pair.
+Some explanations correctly list the room and person order, then reverse a
+relation or answer the inverse question. These are examples of failure to use
+an explicitly generated intermediate arrangement correctly, not direct evidence
+about a pre-existing situation-only hidden representation.
+
+The leftmost-person question remains difficult in some cases: test accuracy
+is 89.84% canonical and 87.50% shuffled. In several shuffled responses the model
+confuses the leftmost person with the occupant of the absolute leftmost room,
+even when that room is empty, and continues without a final answer.
+
+4B provides a strong full-context solvability control for both fact orders
+with sufficient output budget. It does not establish that 1.7B can solve the
+task, nor does it supply the missing 4B situation-only probe or causal-use runs.
 
 ## Interpretation
 
@@ -273,17 +324,17 @@ representation. The full-context control additionally shows that high
 canonical linear decodability does not imply that the frozen model will use
 that information to answer the fixed questions correctly under this protocol.
 
-The strongest observation is the condition-specific fact-order gap:
+Within the 1.7B probe results, the main observation is the condition-specific
+fact-order gap:
 
 - canonical-to-canonical mean macro accuracy: 93.0%;
 - shuffled-to-shuffled mean macro accuracy: 48.4%;
 - canonical-to-canonical exact state: 72.1%;
 - shuffled-to-shuffled exact state: 9.6%.
 
-The transfer diagnostic resolves the main ambiguity in the shared result. If
-shuffled representations contained the same state in a different linear
-coordinate system, a probe trained and selected only on shuffled rows should
-have recovered it. Instead, shuffled-to-shuffled performance remained at the
+The transfer diagnostic tests whether training on shuffled inputs rescues
+linear decoding within the selected representation and probe family. It does
+not exclude every possible linear readout or a nonlinear representation. Here, shuffled-to-shuffled performance remained at the
 random reference and matched its shuffled-label control. Both cross-order
 directions also failed.
 
@@ -303,13 +354,25 @@ The appropriate conclusion is therefore:
 > establish a stable, order-invariant, or causally usable world-state
 > representation.
 
+The new 4B control narrows the interpretation: the shuffled task can be solved
+from full context by this larger model with a longer output budget. It does not
+turn the 1.7B shuffled probe failure into evidence of absent state. Probes must
+be measured on 4B itself before comparing its native QA with its decodability.
+
+The hypothesis that a model encodes useful information but cannot reliably
+apply it remains consistent with issue #12. Strong canonical 1.7B probes and
+weak native QA distinguish external linear readability from native answer
+behavior. They do not, without surface baselines and causal interventions,
+prove a coherent world model that the model itself can use. Full-context 4B
+reasoning may recompute the answer from the source trace.
+
 ## Limitations
 
 1. Only 24 abstract layouts exist, with 3 validation and 4 test layouts. The
    independent sample size is much smaller than the rendered row count, and
    the confidence intervals are correspondingly wide.
-2. The condition-specific diagnostic rules out a simple alternative linear
-   coordinate system for shuffled inputs, but it does not show that all state
+2. The condition-specific diagnostic found no successful shuffled readout
+   within the tested probe family, but it does not show that all state
    information is absent. The information could be nonlinearly decodable or
    distributed in a representation not tested here.
 3. The shuffled-label control is above the theoretical random reference on
@@ -318,9 +381,9 @@ The appropriate conclusion is therefore:
    accuracy alone.
 4. The run tests decodability, not causal use. It does not remove source tokens
    and feed a hidden-state bottleneck to a frozen reader.
-5. The full-context control shows weak native task performance, so it cannot
-   serve as a positive solvability control for interpreting the shuffled probe
-   failure. Lexical/surface baselines have not yet been reported.
+5. Native QA is weak for 1.7B at 64 tokens but strong for 4B at 2048 tokens.
+   Generation budgets are not matched across models, and no 4B probes have
+   been reported here. Lexical/surface baselines are still missing.
 6. The result directories currently preserve the reports and selected probes,
    but not the feature manifest or feature shards needed to audit extraction
    provenance and reproduce fitting from the saved activations.
@@ -330,11 +393,10 @@ The appropriate conclusion is therefore:
 1. Run a lexical/surface baseline and, as a secondary diagnostic, a small MLP
    probe on the same frozen features. The MLP must remain clearly labelled as
    nonlinear decodability rather than evidence for a compact linear state.
-2. Diagnose the weak full-context behavior with controls that change only the
-   answer interface or task presentation, while preserving greedy generation
-   and reporting raw outputs. A larger or instruction-tuned model can provide
-   an additional positive solvability control, but should be reported as a
-   separate model rather than substituted into the Qwen3-1.7B result.
+2. Match the 1.7B/4B generation budgets and apply any parser correction
+   uniformly, retaining original reports. Run situation-only feature extraction
+   and probes on 4B, then compare decoding and full-context QA within that
+   same model. Keep thinking-enabled runs as a separate protocol.
 3. Expand the synthetic task so validation and test contain substantially more
    independent world states, names, locations, and event compositions.
 4. Add paired group-level intervals for fact-order and instruction contrasts.

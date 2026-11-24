@@ -363,7 +363,7 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   --model-dtype bfloat16 \
   --batch-size 16 \
   --max-length 256 \
-  --max-new-tokens 64 \
+  --max-new-tokens 2048 \
   --bootstrap-samples 2000 \
   --bootstrap-seed 12013
 ```
@@ -383,7 +383,7 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   --model-dtype bfloat16 \
   --batch-size 16 \
   --max-length 256 \
-  --max-new-tokens 64 \
+  --max-new-tokens 2048 \
   --bootstrap-samples 2000 \
   --bootstrap-seed 12013
 ```
@@ -403,7 +403,7 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   --model-dtype bfloat16 \
   --batch-size 8 \
   --max-length 256 \
-  --max-new-tokens 64 \
+  --max-new-tokens 2048 \
   --bootstrap-samples 2000 \
   --bootstrap-seed 12013
 ```
@@ -423,7 +423,7 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   --model-dtype bfloat16 \
   --batch-size 8 \
   --max-length 256 \
-  --max-new-tokens 64 \
+  --max-new-tokens 2048 \
   --bootstrap-samples 2000 \
   --bootstrap-seed 12013
 ```

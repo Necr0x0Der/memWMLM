@@ -16,13 +16,12 @@ import re
 import shutil
 import tempfile
 import time
+from functools import partial
 from pathlib import Path
 from typing import Mapping, Sequence
 
 import torch
 from torch import Tensor
-
-from memwmlm.models.qwen import QwenChatPromptFormatter
 
 from extract_hidden_features import (
     DEFAULT_MODEL,
@@ -51,6 +50,16 @@ PROMPT_TEMPLATE = (
     "{situation}\n\nQuestion: {question}\n"
     "Return exactly one of the following lines and nothing else:\n{valid_responses}"
 )
+
+
+def format_qa_chat(task_text: str, tokenizer: object, enable_thinking: bool = False) -> str:
+    """Apply this experiment's thinking setting without changing shared formatters."""
+    return tokenizer.apply_chat_template(
+        [{"role": "user", "content": task_text}],
+        tokenize=False,
+        add_generation_prompt=True,
+        enable_thinking=enable_thinking,
+    )
 
 
 def answer_text(value: object) -> str:
@@ -276,7 +285,7 @@ def run_full_context_qa(
     tokenizer.padding_side = "left"
     if not getattr(tokenizer, "chat_template", None):
         raise RuntimeError("Qwen tokenizer has no chat template")
-    formatter = QwenChatPromptFormatter(tokenizer, enable_thinking=enable_thinking)
+    formatter = partial(format_qa_chat, tokenizer=tokenizer, enable_thinking=enable_thinking)
     choices: dict[str, dict[str, object]] = {}
     for probe_name, definition in probes.items():
         answers = [answer_text(value) for value in definition["classes"]]

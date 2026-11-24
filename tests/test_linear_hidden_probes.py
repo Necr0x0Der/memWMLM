@@ -26,11 +26,25 @@ from evaluate_full_context_qa import (  # noqa: E402
     build_prompt,
     parse_splits,
     parse_short_answer,
+    select_fact_order,
 )
 
 
 def file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_qa_fact_order_filter() -> None:
+    import pytest
+
+    rows = [{"id": "c", "fact_order": "canonical"}, {"id": "s", "fact_order": "shuffled"}]
+    assert select_fact_order(rows, "shuffled") == [rows[1]]
+    assert select_fact_order(rows, "canonical") == [rows[0]]
+    assert select_fact_order(rows, "all") == rows
+    with pytest.raises(ValueError):
+        select_fact_order([rows[0]], "shuffled")
+    with pytest.raises(ValueError):
+        select_fact_order(rows, "unknown")
 
 
 def test_probe_bank_learns_multiple_fixed_questions() -> None:

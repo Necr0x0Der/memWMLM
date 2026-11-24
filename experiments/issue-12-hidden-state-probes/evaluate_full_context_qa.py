@@ -29,7 +29,6 @@ from extract_hidden_features import (
     DEFAULT_REVISION,
     git_revision,
     load_frozen_model,
-    sha256,
     storage_dtype,
     validate_dataset_manifest,
 )
@@ -44,6 +43,10 @@ from train_linear_probes import (
 
 RESULT_SCHEMA_VERSION = "spatial-full-context-final-answer-v3"
 DEFAULT_SPLITS = ("validation", "test")
+MODEL_REVISIONS = {
+    DEFAULT_MODEL: DEFAULT_REVISION,
+    "Qwen/Qwen3-4B": "1cfa9a7208912126459214e8b04321603b3df60c",
+}
 PROMPT_TEMPLATE = (
     "{situation}\n\nQuestion: {question}\n"
     "Return exactly one of the following lines and nothing else:\n{valid_responses}"
@@ -170,6 +173,46 @@ def parse_splits(spec: str) -> tuple[str, ...]:
     return values
 
 
+def select_fact_order(rows: list[dict], fact_order: str) -> list[dict]:
+    if fact_order not in ("all", "canonical", "shuffled"):
+        raise ValueError(f"Unknown fact order: {fact_order}")
+    selected = [row for row in rows if fact_order == "all" or row["fact_order"] == fact_order]
+    if not selected:
+        raise ValueError(f"No records for fact order: {fact_order}")
+    return selected
+
+
+def resolve_revision(model_name: str, revision: str | None) -> str:
+    if revision:
+        return revision
+    if model_name not in MODEL_REVISIONS:
+        raise ValueError("Specify --revision for a model without a known pinned revision")
+    return MODEL_REVISIONS[model_name]
+
+
+def validate_qa_rows(rows: Sequence[dict], manifest: dict) -> None:
+    """Check the v2 QA export against the definitions actually used for scoring."""
+    for row in rows:
+        if manifest.get("schema_version") != "spatial-hidden-state-probes-v2":
+            continue  # Older datasets have no exported QA or fact lists.
+        expected_facts = row[f"{row['fact_order']}_facts"]
+        instruction = manifest["instructions"][row["instruction_id"]]
+        expected_text = "\n".join(([instruction] if instruction else []) + expected_facts)
+        if row["facts"] != expected_facts or row["text"] != expected_text:
+            raise ValueError(f"Fact order/text mismatch in {row['id']}")
+        qa = {item["id"]: item for item in row["qwen_qa"]}
+        if len(qa) != len(row["qwen_qa"]) or set(qa) != set(manifest["probes"]):
+            raise ValueError(f"QA question IDs mismatch in {row['id']}")
+        for name, definition in manifest["probes"].items():
+            item = qa[name]
+            if (
+                item["question"] != definition["question"]
+                or item["allowed_answers"] != [answer_text(v) for v in definition["classes"]]
+                or item["answer"] != answer_text(row["targets"][name])
+            ):
+                raise ValueError(f"QA definition/target mismatch in {row['id']}: {name}")
+
+
 def run_full_context_qa(
     dataset_dir: Path,
     output_dir: Path,
@@ -184,6 +227,7 @@ def run_full_context_qa(
     local_files_only: bool,
     bootstrap_samples: int,
     bootstrap_seed: int,
+    fact_order: str = "all",
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
@@ -191,6 +235,10 @@ def run_full_context_qa(
         raise ValueError("bootstrap samples must be positive")
     if not splits:
         raise ValueError("At least one split is required")
+    if fact_order not in ("all", "canonical", "shuffled"):
+        raise ValueError(f"Unknown fact order: {fact_order}")
+    if batch_size <= 0 or max_length <= 0 or max_new_tokens <= 0:
+        raise ValueError("batch_size, max_length, and max_new_tokens must be positive")
 
     dataset_manifest, dataset_hashes = validate_dataset_manifest(dataset_dir)
     probes = dataset_manifest.get("probes")
@@ -200,6 +248,9 @@ def run_full_context_qa(
         name: len(definition["classes"]) for name, definition in probes.items()
     }
     rows = {split: read_jsonl(dataset_dir / f"{split}.jsonl") for split in splits}
+    for split in splits:
+        rows[split] = select_fact_order(rows[split], fact_order)
+        validate_qa_rows(rows[split], dataset_manifest)
     targets = {split: encode_targets(rows[split], probes) for split in splits}
 
     model_dtype = storage_dtype(model_dtype_name)
@@ -269,6 +320,8 @@ def run_full_context_qa(
                             "question": choice["question"],
                             "allowed_answers": choice["answer_texts"],
                             "raw_response": response,
+                            "situation": row["text"],
+                            "expected_answer": choice["answer_texts"][target],
                             "predicted_class_index": prediction if prediction >= 0 else None,
                             "target_class_index": target,
                             "valid_format": prediction >= 0,
@@ -365,6 +418,7 @@ def run_full_context_qa(
                 "files": dataset_hashes,
             },
             "splits": list(splits),
+            "fact_order": fact_order,
             "evaluation": evaluations,
             "batch_size": batch_size,
             "responses_file": "responses.jsonl",
@@ -393,8 +447,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--fact-order", choices=("all", "shuffled", "canonical"), default="all",
+        help="Evaluate only the selected fact order; default: both orders.",
+    )
     parser.add_argument("--model", default=DEFAULT_MODEL)
-    parser.add_argument("--revision", default=DEFAULT_REVISION)
+    parser.add_argument("--revision", help="Model revision; defaults to a per-model pinned SHA for Qwen3-1.7B/4B.")
     parser.add_argument(
         "--splits",
         default=",".join(DEFAULT_SPLITS),
@@ -422,10 +480,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     report = run_full_context_qa(
+        fact_order=args.fact_order,
         dataset_dir=args.dataset_dir,
         output_dir=args.output_dir,
         model_name=args.model,
-        revision=args.revision,
+        revision=resolve_revision(args.model, args.revision),
         splits=parse_splits(args.splits),
         batch_size=args.batch_size,
         max_length=args.max_length,

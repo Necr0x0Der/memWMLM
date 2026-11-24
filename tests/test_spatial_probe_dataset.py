@@ -16,6 +16,7 @@ from prepare_spatial_probe_dataset import (  # noqa: E402
     assign_layouts,
     build_dataset,
     generate_records,
+    qwen_questions,
     split_counts,
     targets_for,
 )
@@ -47,6 +48,31 @@ def test_grouped_split_keeps_all_near_duplicate_variants_together() -> None:
     assert all(len(splits) == 1 for splits in splits_by_group.values())
     assert {next(iter(splits)) for splits in splits_by_group.values()} == set(SPLITS)
     assert all(len(variants) == len(INSTRUCTIONS) * 2 for variants in variants_by_episode.values())
+
+
+def test_records_explicitly_pair_canonical_and_shuffled_facts_for_qwen() -> None:
+    records = generate_records(seed=12, episodes_per_group=1)
+    rows = {
+        (record["episode_id"], record["instruction_id"], record["fact_order"]): record
+        for record in records
+    }
+
+    for record in records:
+        assert sorted(record["canonical_facts"]) == sorted(record["shuffled_facts"])
+        assert record["canonical_facts"] != record["shuffled_facts"]
+        assert record["facts"] == record[f"{record['fact_order']}_facts"]
+        instruction = INSTRUCTIONS[record["instruction_id"]]
+        expected_lines = [instruction] if instruction else []
+        expected_lines += record["facts"]
+        assert record["text"] == "\n".join(expected_lines)
+        assert record["qwen_qa"] == qwen_questions(record["targets"])
+        assert all(item["answer"] in item["allowed_answers"] for item in record["qwen_qa"])
+
+        mate_order = "shuffled" if record["fact_order"] == "canonical" else "canonical"
+        mate = rows[(record["episode_id"], record["instruction_id"], mate_order)]
+        assert record["canonical_facts"] == mate["canonical_facts"]
+        assert record["shuffled_facts"] == mate["shuffled_facts"]
+        assert record["qwen_qa"] == mate["qwen_qa"]
 
 
 def test_split_is_deterministic_balanced_and_close_to_requested_ratio() -> None:

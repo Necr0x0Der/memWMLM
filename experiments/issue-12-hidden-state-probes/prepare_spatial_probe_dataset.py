@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Iterable, Sequence
 
 
-SCHEMA_VERSION = "spatial-hidden-state-probes-v1"
+SCHEMA_VERSION = "spatial-hidden-state-probes-v2"
 PEOPLE = ("Mary", "John", "Bob")
 ROOMS = ("A", "B", "C", "D")
 SPLITS = ("train", "validation", "test")
@@ -82,6 +82,29 @@ def probe_definitions() -> dict[str, dict[str, object]]:
             "classes": [0, 1],
         }
     return probes
+
+
+def qwen_questions(targets: dict[str, str | int]) -> list[dict[str, object]]:
+    """Return self-contained QA metadata for sending a record to Qwen."""
+    questions: list[dict[str, object]] = []
+    for probe_id, definition in probe_definitions().items():
+        target = targets[probe_id]
+        classes = definition["classes"]
+        if classes == [0, 1]:
+            allowed_answers = ["No", "Yes"]
+            answer = allowed_answers[int(target)]
+        else:
+            allowed_answers = list(classes)
+            answer = str(target)
+        questions.append(
+            {
+                "id": probe_id,
+                "question": definition["question"],
+                "allowed_answers": allowed_answers,
+                "answer": answer,
+            }
+        )
+    return questions
 
 
 def split_counts(total: int, ratios: Sequence[float]) -> tuple[int, int, int]:
@@ -206,6 +229,8 @@ def generate_records(
             rooms = ordered_rooms[episode_index % len(ordered_rooms)]
             episode_id = f"{current_group_id}:episode-{episode_index:03d}"
             canonical_facts = facts_for(layout, rooms)
+            episode_targets = targets_for(layout)
+            episode_questions = qwen_questions(episode_targets)
             order_variants = {
                 "canonical": canonical_facts,
                 "shuffled": shuffled_facts(
@@ -228,13 +253,20 @@ def generate_records(
                             "episode_id": episode_id,
                             "instruction_id": instruction_id,
                             "fact_order": fact_order,
+                            # Keep the exact facts separate from the optional instruction.
+                            # The paired fields make the canonical/shuffled relationship
+                            # explicit instead of requiring callers to join adjacent rows.
+                            "facts": list(facts),
+                            "canonical_facts": list(canonical_facts),
+                            "shuffled_facts": list(order_variants["shuffled"]),
                             "text": render_text(instruction, facts),
                             "state": {
                                 "left_to_right_rooms": list(rooms),
                                 "person_room": person_room,
                                 "person_rank": dict(zip(PEOPLE, layout)),
                             },
-                            "targets": targets_for(layout),
+                            "targets": episode_targets,
+                            "qwen_qa": episode_questions,
                         }
                     )
     return records
@@ -245,6 +277,7 @@ def validate_records(records: Sequence[dict[str, object]]) -> None:
         raise ValueError("Dataset is empty")
     split_by_group: dict[str, str] = {}
     seen_ids: set[str] = set()
+    variants_by_condition: dict[tuple[str, str], dict[str, dict[str, object]]] = {}
     for record in records:
         record_id = str(record["id"])
         split = str(record["split"])
@@ -255,8 +288,38 @@ def validate_records(records: Sequence[dict[str, object]]) -> None:
         previous = split_by_group.setdefault(current_group_id, split)
         if previous != split:
             raise ValueError(f"Group leakage: {current_group_id} is in {previous} and {split}")
+        facts = list(record["facts"])  # type: ignore[arg-type]
+        canonical = list(record["canonical_facts"])  # type: ignore[arg-type]
+        shuffled = list(record["shuffled_facts"])  # type: ignore[arg-type]
+        if Counter(canonical) != Counter(shuffled) or canonical == shuffled:
+            raise ValueError(f"Invalid canonical/shuffled fact pair: {record_id}")
+        fact_order = str(record["fact_order"])
+        if fact_order not in FACT_ORDERS:
+            raise ValueError(f"Unknown fact_order in {record_id}: {fact_order}")
+        expected_facts = canonical if fact_order == "canonical" else shuffled
+        if facts != expected_facts:
+            raise ValueError(f"facts do not match fact_order in {record_id}")
+        instruction = INSTRUCTIONS[str(record["instruction_id"])]
+        if record["text"] != render_text(instruction, facts):
+            raise ValueError(f"text does not render facts in {record_id}")
+        qa = list(record["qwen_qa"])  # type: ignore[arg-type]
+        if qa != qwen_questions(record["targets"]):  # type: ignore[arg-type]
+            raise ValueError(f"Qwen QA metadata does not match targets in {record_id}")
+        condition = (str(record["episode_id"]), str(record["instruction_id"]))
+        variants = variants_by_condition.setdefault(condition, {})
+        if fact_order in variants:
+            raise ValueError(f"Duplicate {fact_order} variant for {condition}")
+        variants[fact_order] = record
     if set(split_by_group.values()) != set(SPLITS):
         raise ValueError("All three splits must be present")
+    for condition, variants in variants_by_condition.items():
+        if set(variants) != set(FACT_ORDERS):
+            raise ValueError(f"Missing canonical/shuffled pair for {condition}")
+        canonical_record = variants["canonical"]
+        shuffled_record = variants["shuffled"]
+        for field in ("canonical_facts", "shuffled_facts", "targets", "qwen_qa"):
+            if canonical_record[field] != shuffled_record[field]:
+                raise ValueError(f"Mismatched {field} in pair for {condition}")
 
 
 def write_jsonl(path: Path, records: Iterable[dict[str, object]]) -> int:
@@ -302,6 +365,15 @@ def build_dataset(
             "rooms": list(ROOMS),
             "instructions": INSTRUCTIONS,
             "fact_orders": list(FACT_ORDERS),
+            "record_fields": {
+                "facts": "facts in the order used by this row's text",
+                "canonical_facts": "canonical facts for the matched episode",
+                "shuffled_facts": "a non-identity permutation of canonical_facts",
+                "qwen_qa": (
+                    "questions, allowed short answers, and expected answers; combine an "
+                    "item's question with text (or facts) to query Qwen"
+                ),
+            },
             "probes": probe_definitions(),
             "split": {
                 "unit": "abstract_person_rank_layout",

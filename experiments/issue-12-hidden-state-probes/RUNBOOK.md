@@ -61,7 +61,8 @@ Verify PyTorch, Transformers, CUDA, BF16, and the issue #12 unit tests:
 .venv/bin/pytest -q \
   tests/test_spatial_probe_dataset.py \
   tests/test_hidden_feature_extraction.py \
-  tests/test_linear_hidden_probes.py
+  tests/test_linear_hidden_probes.py \
+  tests/test_full_context_qa.py
 ```
 
 Do not continue if CUDA or the tests fail.
@@ -92,9 +93,9 @@ Verify the example counts, group counts, file hashes, and group separation:
 
 ```bash
 .venv/bin/python -c "import json,pathlib; p=pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/db'); splits=('train','validation','test'); rows={s:[json.loads(x) for x in (p/f'{s}.jsonl').read_text().splitlines()] for s in splits}; groups={s:{r['group_id'] for r in rows[s]} for s in splits}; assert {s:len(rows[s]) for s in splits}=={'train':3264,'validation':576,'test':768}; assert {s:len(groups[s]) for s in splits}=={'train':17,'validation':3,'test':4}; assert all(not groups[a]&groups[b] for i,a in enumerate(splits) for b in splits[i+1:]); print({s:(len(rows[s]),len(groups[s])) for s in splits})"
-echo "65f2123421fabe7bba8da39b0bf0c6e8b5930928fb0bda3293824601a371f448  experiments/issue-12-hidden-state-probes/artifacts/db/train.jsonl" | sha256sum -c -
-echo "ffc60ba6068cba6648309322bda24adacffd62a6ddf213c4f15742321c4972f3  experiments/issue-12-hidden-state-probes/artifacts/db/validation.jsonl" | sha256sum -c -
-echo "ae2a052f5d95493b3d719853d8f430a7b2f4f3f3180a8029281cfcd2b1c27e89  experiments/issue-12-hidden-state-probes/artifacts/db/test.jsonl" | sha256sum -c -
+echo "e259a958f30e51bbd9a2a127af0791f4a98e07d8c7cadb7db82a69c1e55a4951  experiments/issue-12-hidden-state-probes/artifacts/db/train.jsonl" | sha256sum -c -
+echo "a0ab7b98aff38795a7cc62df306e0afa9baa203ec488f79a6068972e152ba7b5  experiments/issue-12-hidden-state-probes/artifacts/db/validation.jsonl" | sha256sum -c -
+echo "1014267d0114dc501266b1cecb3bb60332a8a842229f753bebedb5130a5a9d03  experiments/issue-12-hidden-state-probes/artifacts/db/test.jsonl" | sha256sum -c -
 ```
 
 Expected output:
@@ -318,18 +319,43 @@ Interpret the matrix as follows:
 
 ## 10. Run the full-context short-answer control
 
+For this control on the existing database, skip dataset generation, feature
+extraction, and probe training (steps 3 and 5–9). The database in this checkout
+is `experiments/issue-12-hidden-state-probes/artifacts/db`, not
+`experiments/issue-12-hidden-state-probes/db`. The evaluator itself is in the
+experiment directory, not directly under `experiments/`. Do not regenerate the
+database or use `artifacts/prev/db_prev` for these runs.
+
+Download both pinned models if they are not already cached:
+
+```bash
+.venv/bin/hf download Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e
+.venv/bin/hf download Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c
+```
+
+The 4B revision is the one recorded in
+`experiments/issue-5-qwen3-factual-knowledge/model-revisions.json`.
+Run the four commands below separately and sequentially on the selected GPU.
+Qwen3-4B BF16 weights alone require about 8 GB, plus activations and KV cache;
+the 8 GB GPU guidance in step 2 is for 1.7B only. Reduce `--batch-size` if needed.
+Output directories must not already exist; results are published after the
+entire run succeeds, and interrupted runs cannot resume.
+
 This control does not fit a probe. It gives frozen Qwen the complete situation
 and one fixed question through the standard Qwen chat template with thinking
 disabled, asks for exactly one allowed short answer, and uses greedy generation.
 The required output marker is `FINAL: <answer>`; no answer is inferred from
 first-step logits. Replace `0` with the physical number of a free GPU. Use the
-distinct `-final-` output path so earlier diagnostics are never overwritten:
+distinct output paths for the two fact orders. First run shuffled only:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-shuffled-qwen3-1.7b \
+  --fact-order shuffled \
   --model Qwen/Qwen3-1.7B \
   --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
   --splits validation,test \
@@ -342,18 +368,89 @@ CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
   --bootstrap-seed 12013
 ```
 
-The command writes:
+Then run canonical separately:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-canonical-qwen3-1.7b \
+  --fact-order canonical \
+  --model Qwen/Qwen3-1.7B \
+  --revision 70d244cc86ccca08cf5af4e1e306ecf908b1ad5e \
+  --splits validation,test \
+  --device cuda \
+  --model-dtype bfloat16 \
+  --batch-size 16 \
+  --max-length 256 \
+  --max-new-tokens 64 \
+  --bootstrap-samples 2000 \
+  --bootstrap-seed 12013
+```
+
+Repeat for Qwen3-4B, first shuffled:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-shuffled-qwen3-4b \
+  --fact-order shuffled \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --splits validation,test \
+  --device cuda \
+  --model-dtype bfloat16 \
+  --batch-size 8 \
+  --max-length 256 \
+  --max-new-tokens 64 \
+  --bootstrap-samples 2000 \
+  --bootstrap-seed 12013
+```
+
+Then run canonical separately:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venv/bin/python \
+  experiments/issue-12-hidden-state-probes/evaluate_full_context_qa.py \
+  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --output-dir experiments/issue-12-hidden-state-probes/artifacts/full-context-canonical-qwen3-4b \
+  --fact-order canonical \
+  --model Qwen/Qwen3-4B \
+  --revision 1cfa9a7208912126459214e8b04321603b3df60c \
+  --splits validation,test \
+  --device cuda \
+  --model-dtype bfloat16 \
+  --batch-size 8 \
+  --max-length 256 \
+  --max-new-tokens 64 \
+  --bootstrap-samples 2000 \
+  --bootstrap-seed 12013
+```
+
+Each run uses all four instruction variants, with 288 validation rows and
+384 test rows (seven questions per row). Each run generates 4,704 responses
+(2,016 validation and 2,688 test).
+Filtering happens before inference and metric computation. Before loading the
+model, the evaluator verifies file hashes and checks v2 fact order, text,
+QA questions, answer choices, and targets for consistency. Omit `--fact-order`
+or use `all` to evaluate both.
+The new database's `text` remains the model input; `state`, `targets`, and
+`qwen_qa[].answer` are never included in the prompt.
+
+Each output directory contains:
 
 ```text
-experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b/report.json
-experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b/responses.jsonl
+report.json
+responses.jsonl
 ```
 
 `responses.jsonl` is part of the result: preserve it so every generated answer
-and parser decision can be audited. Inspect headline test results with:
+and parser decision can be audited. It includes `situation`, `question`,
+`expected_answer`, `raw_response`, and `correct`. Inspect each run with:
 
 ```bash
-.venv/bin/python -c "import json,pathlib; r=json.loads(pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts/full-context-final-qwen3-1.7b/report.json').read_text()); t=r['evaluation']['test']; print('overall',t['overall']); print('canonical',t['fact_order']['canonical']); print('shuffled',t['fact_order']['shuffled']); print('invalid',t['invalid_answers'])"
+.venv/bin/python -c "import json,pathlib; base=pathlib.Path('experiments/issue-12-hidden-state-probes/artifacts'); reports=[json.loads((base/f'full-context-{order}-{model}/report.json').read_text()) for model in ('qwen3-1.7b','qwen3-4b') for order in ('shuffled','canonical')]; [(print(r['model']['name'],r['fact_order']), print(r['evaluation']['test']['overall']), print(r['evaluation']['test']['invalid_answers'])) for r in reports]"
 ```
 
 If full-context shuffled accuracy is high while shuffled hidden-state probes

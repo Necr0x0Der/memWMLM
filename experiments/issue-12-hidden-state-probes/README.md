@@ -29,9 +29,29 @@ Every semantic episode has matched variants for:
 - the selective instruction `Think about where Mary is.`;
 - canonical and shuffled fact order.
 
-The `text` field contains the complete situation-only encoder input.  Questions
-are metadata in `manifest.json` and must not be appended when extracting the
+The `text` field contains the complete situation-only encoder input. Each row
+also stores `facts` (the order rendered in `text`), plus the matched
+`canonical_facts` and `shuffled_facts` lists. The latter is guaranteed to be a
+non-identity permutation of the former. `qwen_qa` contains every question,
+allowed short answers, and the expected answer, so a shuffled row is directly
+usable for full-context Qwen QA by combining its `text` with a selected
+`qwen_qa[].question`. Questions must not be appended when extracting the
 features used by the primary probes.
+
+For example, a Qwen QA caller can select a row with
+`fact_order == "shuffled"`, use `row["text"]` as the situation, and select a
+question from `row["qwen_qa"]`. Each question item has this shape:
+
+```json
+{
+  "id": "mary_left_of_john",
+  "question": "Is Mary left of John?",
+  "allowed_answers": ["No", "Yes"],
+  "answer": "Yes"
+}
+```
+
+The `answer` is evaluation metadata and must not be included in the Qwen input.
 
 ## Leakage-safe split
 

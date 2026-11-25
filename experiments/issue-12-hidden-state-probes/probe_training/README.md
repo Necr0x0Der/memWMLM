@@ -1,6 +1,7 @@
 # Qwen3-4B: instruction-specific linear probes
 
 Пошаговый запуск на существующей базе: [RUNBOOK.md](RUNBOOK.md).
+Результаты Qwen3-4B и ответ на замечания review: [RESULTS.md](RESULTS.md).
 
 This follow-up trains **56 separate linear classifiers**: seven fixed questions
 × four instructions × two fact orders. Every classifier independently selects

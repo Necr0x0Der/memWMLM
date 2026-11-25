@@ -4,6 +4,10 @@ Updated 2026-11-25. The probe and fact-order transfer results below are for
 **Qwen3-1.7B only**. Full-context QA now includes Qwen3-1.7B and Qwen3-4B,
 with separate canonical and shuffled runs.
 
+The Qwen3-4B instruction-specific probe follow-up is documented separately in
+[`probe_training/RESULTS.md`](probe_training/RESULTS.md), including paired
+instruction contrasts, Mary selectivity, and pooling-selection diagnostics.
+
 Archived probe artifacts:
 
 - `artifacts/prev/probes-qwen3-1.7b/report.json`;

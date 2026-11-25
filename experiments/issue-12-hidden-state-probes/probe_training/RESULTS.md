@@ -1,9 +1,10 @@
 # Qwen3-4B: instruction-specific probe results
 
-Recorded 2026-11-25. This follow-up addresses instruction-specific classifiers
+Fixed-pooling results recorded 2026-11-25; attention and matched mean results
+added 2026-11-26 (see the final section). The fixed-pooling follow-up addresses instruction-specific classifiers
 and the selective Mary test requested in [PR #14's review note](https://github.com/Necr0x0Der/memWMLM/pull/14#issuecomment-7113323224).
 
-**Canonical targets are highly linearly decodable; shuffled targets remain much
+**With the original fixed-pooling readouts, canonical targets are highly linearly decodable; shuffled targets remain much
 less decodable even with separately trained classifiers. Instructions improve
 some shuffled scores, but there is no clear selective improvement for Mary.**
 The result does not establish a stable or causally usable world state.
@@ -235,7 +236,159 @@ mechanism or prove that a world state is absent.
    data coverage and format dependence remain possible explanations. No
    cross-order transfer evaluation of these 4B banks was performed.
 
-The two requested analyses are now implemented and measured. The defensible
-claim remains condition-specific linear decodability, with strong dependence
-on fact order and no clear Mary-selective benefit. The broader usable-world-state
+For the fixed-pooling experiment above, both requested analyses are implemented
+and measured. Its defensible claim remains condition-specific linear
+decodability, with strong dependence on fact order and no clear Mary-selective
+benefit. The attention/matched-mean follow-up below uses a different readout
+and selection procedure and adds evidence about instruction effects. The broader usable-world-state
 claim remains open. Reproduction commands: [RUNBOOK.md](RUNBOOK.md).
+
+## Shared attention pooling and matched mean control — 2026-11-26
+
+This follow-up changes the readout: one trainable query pools all valid token
+states into a single z shared by seven linear heads, separately within each
+instruction/order condition. Qwen stays frozen. The complete attention readout
+is nonlinear; it should not be described as a linear probe over fixed pooled
+features. The matched mean control uses the same implementation with q fixed
+to zero, so pooling weights remain uniform.
+
+**Attention improves shuffled `track_mary` macro accuracy over matched mean
+by 11.46 percentage points. However, the Mary-selective instruction effect
+also appears with mean pooling; it is not specific to learned attention.**
+
+### Protocol and artifact checks
+
+- Attention: `artifacts/attention-qwen3-4b/report.json`.
+- Matched mean: `artifacts/mean-qwen3-4b/report.json`.
+- Both use the same dataset and token-feature manifest hashes, model revision,
+  candidate layers, L2 values, optimizer and seed. Each has eight checkpoints
+  and 768 unique test prediction rows.
+- Candidates: layers 4, 8, 12, 16, 20, 24, 28, 36; L2 0.0001/0.001;
+  epochs 1–50 (800 candidates per bank). Adam learning rate 0.001,
+  batch size 16, seed 12012. Training runs on CPU.
+- Layer/L2/epoch are selected jointly for each seven-head bank using mean
+  validation balanced accuracy, then joint accuracy, stronger L2, earlier
+  epoch and first layer. This differs from the earlier per-question selection.
+  Both modes select their own configurations, so this compares optimized
+  readout procedures rather than a fixed-checkpoint toggle of q.
+- All test metrics were recomputed from saved predictions and matched reports.
+  Checkpoint configurations match the reports, parameters are finite, and all
+  mean-control q vectors are exactly zero. Token-feature files are unavailable
+  here, so forward inference and the feature manifest itself were not reverified.
+- The between-mode intervals below were computed from the saved predictions
+  using the existing `paired_effects` implementation: episode alignment,
+  paired resampling of the four test groups, 2,000 draws, seed 12012.
+
+attention report SHA256: `544e459aa6d3b66e11c5913dcda9e98eb9eacf67e83f78a0c66b9897cc5576e8`.
+
+mean report SHA256: `0600d4e8dc7c4f50ad7063ff12c3d13c4f3c1425610ea523976047671917a720`.
+
+Shared recorded feature-manifest SHA256: `d3db9b189aa935dceb90357557700d4a454e32cc114c9b0707b15c71abe6bda8`.
+
+### Test accuracy
+
+Macro = mean per-question balanced accuracy; joint = all seven targets correct.
+Percentages, 96 examples per condition. These are targets of relative order,
+not the full world state.
+
+| Instruction | Order | Mean macro | Attention macro | Mean joint | Attention joint |
+|---|---|---:|---:|---:|---:|
+| none | canonical | 88.79 | 93.25 | 67.71 | 73.96 |
+| none | shuffled | 46.97 | 48.61 | 8.33 | 8.33 |
+| imagine | canonical | 90.82 | 90.13 | 68.75 | 64.58 |
+| imagine | shuffled | 48.02 | 47.62 | 6.25 | 15.62 |
+| track_people | canonical | 91.91 | 95.34 | 71.88 | 80.21 |
+| track_people | shuffled | 46.48 | 45.78 | 6.25 | 12.50 |
+| track_mary | canonical | 91.17 | 89.83 | 73.96 | 63.54 |
+| track_mary | shuffled | 53.32 | 64.78 | 12.50 | 19.79 |
+
+### Attention minus matched mean on shuffled inputs
+
+Differences in percentage points, with paired 95% intervals:
+
+| Instruction | Macro difference | Paired 95% interval |
+|---|---:|---|
+| none | +1.64 | [-7.74, +11.31] |
+| imagine | -0.40 | [-26.49, +28.57] |
+| track_people | -0.69 | [-25.30, +25.30] |
+| track_mary | +11.46 | [+7.14, +15.18] |
+
+The clearest advantage is restricted to `track_mary` in this run. For that
+condition, the joint-target difference is +7.29 points, interval [−3.12, +16.67],
+which includes zero. Attention's improvement in Mary-family relations is
++12.50 points versus +6.77 for Bob–John. The difference between those gains is
++5.73 points, interval [−11.46, +22.92]; this comparison does not establish that
+attention itself preferentially improves Mary relations.
+
+### Instruction selectivity exists in the mean control too
+
+Within each mode, compare `track_mary` with `none`, on shuffled inputs.
+Mary family contains both directions of Mary–Bob and Mary–John; the control
+family is both directions of Bob–John. Leftmost is excluded from both families.
+All differences are percentage points.
+
+| Mode | Quantity | Difference | Paired 95% interval |
+|---|---|---:|---|
+| mean | mean_macro_accuracy | +6.35 | [-0.30, +13.10] |
+| mean | mary_relations | +12.24 | [+4.17, +20.31] |
+| mean | bob_john_relations | -1.56 | [-8.33, +5.21] |
+| mean | selectivity_difference_in_differences | +13.80 | [+3.65, +25.87] |
+| attention | mean_macro_accuracy | +16.17 | [+7.59, +24.70] |
+| attention | mary_relations | +20.31 | [+5.73, +34.90] |
+| attention | bob_john_relations | +5.21 | [-3.12, +13.54] |
+| attention | selectivity_difference_in_differences | +15.10 | [-2.60, +31.77] |
+
+Mean pooling already shows a positive relational selectivity contrast:
++13.80 points [3.65, 25.87]. Attention's point estimate is +15.10 points,
+but its interval [−2.60, 31.77] includes zero. The difference in whether these
+intervals include zero is **not** evidence that mean is more selective than
+attention, or that attention strengthens the instruction effect. These are
+exploratory estimates from four independent test groups and one training seed.
+
+### Selected configurations and shuffled-label controls
+
+Validation macro and shuffled-label test macro are percentages. Controls
+retrain at each selected configuration using one train-group label permutation;
+they are not significance tests.
+
+| Mode | Condition | Layer | L2 | Epoch | Validation macro | Shuffled-label test macro |
+|---|---|---:|---:|---:|---:|---:|
+| mean | imagine/canonical | 24 | 0.001 | 11 | 100.00 | 72.97 |
+| mean | imagine/shuffled | 8 | 0.001 | 48 | 54.02 | 45.04 |
+| mean | none/canonical | 24 | 0.001 | 8 | 100.00 | 70.09 |
+| mean | none/shuffled | 20 | 0.001 | 41 | 53.42 | 49.75 |
+| mean | track_mary/canonical | 24 | 0.001 | 7 | 100.00 | 68.65 |
+| mean | track_mary/shuffled | 36 | 0.001 | 33 | 57.69 | 49.40 |
+| mean | track_people/canonical | 24 | 0.001 | 29 | 100.00 | 65.67 |
+| mean | track_people/shuffled | 8 | 0.001 | 48 | 52.63 | 46.83 |
+| attention | imagine/canonical | 8 | 0.001 | 14 | 100.00 | 47.62 |
+| attention | imagine/shuffled | 16 | 0.001 | 13 | 54.76 | 46.03 |
+| attention | none/canonical | 28 | 0.001 | 9 | 100.00 | 69.10 |
+| attention | none/shuffled | 28 | 0.0001 | 42 | 53.22 | 51.04 |
+| attention | track_mary/canonical | 28 | 0.001 | 8 | 100.00 | 74.21 |
+| attention | track_mary/shuffled | 28 | 0.0001 | 44 | 63.05 | 53.57 |
+| attention | track_people/canonical | 36 | 0.001 | 14 | 100.00 | 75.64 |
+| attention | track_people/shuffled | 16 | 0.001 | 30 | 54.12 | 46.48 |
+
+Canonical shuffled-label scores are sometimes high (up to 75.64% for attention
+and 72.97% for mean). They reinforce caution about the small state space and
+canonical regularities. A single group permutation does not establish the null
+score distribution. Canonical validation reaches 100% in every bank of both
+modes, so selected configurations remain sensitive to tie-breaking.
+
+### Interpretation and next boundary
+
+The matched mean run supports a benefit of the learned-attention procedure for
+`track_mary/shuffled`, beyond the earlier comparison with a different optimizer
+and per-question layer selection. It also changes the interpretation of
+selectivity: a Mary-related instruction effect is observable without learned
+attention under the new mean-control training/selection protocol. This need not
+contradict the earlier fixed-pooling results, which used a different procedure.
+
+The experiment still does not distinguish a prepared world state from useful
+features of the full contextual token trace. Attention can learn part of the
+readout task. Source-free state injection and counterfactual state swaps have
+not been run. Surface baselines, larger independent splits and repeated training
+seeds remain outstanding. Bootstrap intervals condition on selected models,
+ignore training/selection uncertainty and multiple comparisons, and can omit
+classes within a resample. Reproduction: [ATTENTION_RUNBOOK.md](ATTENTION_RUNBOOK.md).

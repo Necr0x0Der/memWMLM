@@ -1,5 +1,9 @@
 # Qwen3-4B: запуск instruction-specific probes
 
+Для нового варианта с общим attention pooling используйте
+[ATTENTION_RUNBOOK.md](ATTENTION_RUNBOOK.md). Ему нужны отдельные hidden states
+токенов; прежних усреднённых признаков недостаточно.
+
 Все команды выполняются из корня `memWMLM`. Используется существующая база
 `experiments/issue-12-hidden-state-probes/artifacts/db`: создавать новую не нужно.
 Признаки необходимо извлечь именно из Qwen3-4B; признаки Qwen3-1.7B не подходят.

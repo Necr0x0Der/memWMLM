@@ -2,6 +2,8 @@
 
 Пошаговый запуск на существующей базе: [RUNBOOK.md](RUNBOOK.md).
 Результаты Qwen3-4B и ответ на замечания review: [RESULTS.md](RESULTS.md).
+Новый вариант с общим attention pooling по всем токенам и семью linear heads:
+[ATTENTION_RUNBOOK.md](ATTENTION_RUNBOOK.md).
 
 This follow-up trains **56 separate linear classifiers**: seven fixed questions
 × four instructions × two fact orders. Every classifier independently selects

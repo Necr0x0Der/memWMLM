@@ -238,6 +238,7 @@ def extract_split(
     max_length: int,
     add_special_tokens: bool = False,
     max_examples: int | None = None,
+    save_token_states: bool = False,
 ) -> dict[str, object]:
     """Extract one split into independently loadable, bounded-size shards."""
     output_dir.mkdir(parents=True, exist_ok=False)
@@ -310,6 +311,16 @@ def extract_split(
             "sentence_end_mean": sentence_end_mean.to(device="cpu", dtype=output_dtype),
         }
         shard_path = output_dir / f"shard-{shard_index:05d}.pt"
+        if save_token_states:
+            # Ragged [layers, valid_tokens, hidden] tensors; padding is never saved.
+            payload["token_states"] = [
+                torch.stack([
+                    outputs.hidden_states[layer][i, model_inputs["attention_mask"][i].bool()]
+                    .to(device="cpu", dtype=output_dtype)
+                    for layer in layer_indices
+                ])
+                for i in range(len(records))
+            ]
         torch.save(payload, shard_path)
         shard_records.append(
             {
@@ -396,6 +407,7 @@ def build_features(
     local_files_only: bool,
     add_special_tokens: bool = False,
     max_examples_per_split: int | None = None,
+    save_token_states: bool = False,
 ) -> Path:
     if output_dir.exists():
         raise FileExistsError(f"Refusing to overwrite existing output directory: {output_dir}")
@@ -443,6 +455,7 @@ def build_features(
                 max_length,
                 add_special_tokens,
                 max_examples_per_split,
+                save_token_states,
             )
         manifest = {
             "schema_version": FEATURE_SCHEMA_VERSION,
@@ -470,6 +483,7 @@ def build_features(
                 "chat_template_applied": False,
             },
             "features": {
+                "token_states": "ragged [layers, valid_tokens, hidden]; all input tokens including instruction" if save_token_states else None,
                 "layer_indices": list(layer_indices),
                 "layer_indexing": (
                     "hidden_states[0] is the embedding output; index N below the final "
@@ -519,6 +533,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--revision", default=DEFAULT_REVISION)
     parser.add_argument("--layers", default=DEFAULT_LAYERS)
+    parser.add_argument("--save-token-states", action="store_true",
+                        help="Also save individual valid-token states for learned attention pooling.")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--device", default="cuda")
     parser.add_argument(
@@ -566,6 +582,7 @@ def main() -> None:
         local_files_only=not args.allow_download,
         add_special_tokens=args.add_special_tokens,
         max_examples_per_split=args.max_examples_per_split,
+        save_token_states=args.save_token_states,
     )
     print(json.dumps({"manifest": str(manifest_path)}))
 

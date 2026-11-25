@@ -223,3 +223,34 @@ The memory sidecar clears the no-memory baseline by a wide margin on this single
 Caveats (open): (1) the sentence targets are shorter than whole passages, so `mean_chain_len` 17 is *relatively* higher (a larger fraction of the target) than the ~82 of the whole-passage eval; absolute chain length is not directly comparable. (2) Exact match depends on the regex sentence split, which fragments quotes/abbreviations (`" … ? "`, `M.O.P.`, `@-@`) into short, sometimes odd pieces. (3) Training was hard: the selective-repro loss dropped initially then **plateaued and varied strongly across batches** — gradients were similarly noisy — and never cleanly converged, so these checkpoints are not fully-converged. selective reproduction proved **harder** than whole-passage reproduction for **both** the baseline and the memory model. The task itself is a weak instrument here: WikiText-103 windows are heterogeneous and cluttered with section headers, editors' notes and markup (`= = Title = =`, `@-@`), which muddies both the target and the split.
 
 **Decision (forward, open): pause repro.** Two options are on the table: (a) stop the reproduction line for now and move to the semantic-memory / quiz direction (the 2026-11-01 follow-up), or (b) keep reproduction but switch from WikiText to *cleaner* texts (pre-processed, header-stripped) that better fit the dense per-position reproduction target. No architecture change is decided; the position-aligned writer/reader, the selective-repro modes added to training/eval/baseline, and the `--init-checkpoint` transfer all stay as-is. The selective-repro eval (`evaluate_repro_memory.py` / `evaluate_repro_baseline.py` with `--sentence-mode random --whole-prob 0.0`) remains the way to score any future repro checkpoint on matched per-position questions.
+
+## 2026-11-25 — Multi-commit versioned-fact probe (local, no remote)
+
+A new local branch `multicommit-memory` tests whether the position-aligned
+memory can answer facts from earlier commits, not only the last commit. This
+is a separate synthetic task, not a bAbI or reproduction rerun.
+
+- **Single-entity, three-commit test** (`simple3.pt`, 1500 steps): memory
+  accuracy 99.75% on 1,200 held-out examples with unseen entity names;
+  `last_commit_only` 50.25% overall and 3.25% on the original-location
+  question; `full_context` 86.08%; `null_memory` 16.83%; `no_source` 17.33%;
+  counterfactual follow 99.83%, resist 0.0. This supports a narrow, causal
+  multi-commit claim for ordered single-entity facts.
+- **Complex three-person task**: 1,000-step run gave memory 9.0%,
+  last-commit-only 9.0%, shuffled 9.0%, full context 60.3%; a 3,000-step lr
+  3e-4 run hit `NaN` at step 1600. A lower-LR/source-LoRA/clipped rerun gave
+  memory 11.0% versus last-commit-only 8.0%. This is a boundary result, not a
+  refutation of storage.
+- **Two-entity probe**: `two.pt` (1500 steps, 400 examples) is undertrained:
+  memory 15.25%, last-commit-only 15.0%, shuffled 15.5%, null 16.75%,
+  no-source 16.0%, full context 80.0%. `two_long.pt` (3000 steps, 2000 examples)
+  reaches memory 53.75% (original 99.75%, current 38.125%, previous 46.375%),
+  last-commit-only 26.25%, shuffled 47.35%, full context 81.45%; counterfactual
+  follow 55.5%, resist 9.85%. This is a partial/boundary result: the current
+  reader does not bind two independent entity histories, so the single-entity
+  claim must not be extended to multi-entity memory without a new mechanism.
+
+The experiment is local only: no push, no GitHub issue, no remote artifact.
+Reusable artifacts are under `datasets/multicommit-*`,
+`runs/multicommit-memory/`, and `RESEARCH-JOURNAL.md`.
+

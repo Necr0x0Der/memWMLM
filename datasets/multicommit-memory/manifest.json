@@ -1,0 +1,55 @@
+{
+  "dataset": "synthetic multi-commit versioned facts",
+  "seed": 20261125,
+  "cities": [
+    "Paris",
+    "Rome",
+    "Berlin",
+    "Madrid",
+    "London",
+    "Lisbon",
+    "Vienna",
+    "Prague",
+    "Oslo",
+    "Cairo",
+    "Tokyo",
+    "Sydney"
+  ],
+  "train_names": [
+    "Alice",
+    "Bob",
+    "Carol",
+    "David",
+    "Erin",
+    "Frank"
+  ],
+  "test_names": [
+    "Grace",
+    "Henry",
+    "Iris",
+    "Jack",
+    "Kate",
+    "Leo"
+  ],
+  "train_episodes": 1200,
+  "test_episodes": 300,
+  "train_questions": 6000,
+  "test_questions": 1500,
+  "train_path": "datasets/multicommit-memory/train.jsonl",
+  "test_path": "datasets/multicommit-memory/test.jsonl",
+  "train_sha256": "f8e0999b46dda54a83a773239692c232d9eb79e9c83c6cb6da2fb927f1f96367",
+  "test_sha256": "924acbac2ba55af46afb2dfcb1ce469541a6f33be25ae8cac4e5c8dd247d7133",
+  "question_types": {
+    "current": 3,
+    "previous": 2
+  },
+  "protocol": {
+    "commits_per_episode": 3,
+    "source_documents_are_separate_commits": true,
+    "question_types": [
+      "current",
+      "previous"
+    ],
+    "entity_split": "train names and test names are disjoint"
+  }
+}

@@ -7,6 +7,12 @@ encoding.
 
 For a clean-machine, end-to-end execution guide, see [`RUNBOOK.md`](RUNBOOK.md).
 
+For the Qwen3-4B follow-up with separate instruction/order classifiers,
+independent validation selection for each question, and paired Mary-selectivity
+comparisons, see [`probe_training/README.md`](probe_training/README.md).
+That folder includes an audit of whether the existing dataset supports the
+revised protocol; the shared-readout scripts below retain their original scope.
+
 ## What the dataset measures
 
 Each world has four linearly ordered rooms and three people.  The text states

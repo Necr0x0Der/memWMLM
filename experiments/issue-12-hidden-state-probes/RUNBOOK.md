@@ -1,5 +1,9 @@
 # Build the spatial-probe dataset, extract Qwen features, and fit linear probes
 
+For Qwen3-4B with separate instruction/order classifiers and per-question
+hyperparameter selection, use [the dedicated runbook](probe_training/RUNBOOK.md).
+It reuses the existing dataset and includes the paired Mary-selectivity test.
+
 This runbook prepares the issue #12 dataset and extracts situation-only hidden
 features from the frozen Qwen3-1.7B model, then fits the pre-specified shared
 linear probes. Run every command from the repository root.

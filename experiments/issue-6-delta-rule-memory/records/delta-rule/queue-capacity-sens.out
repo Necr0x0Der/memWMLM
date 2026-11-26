@@ -1,42 +1,0 @@
-Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:  49%|████▉     | 153/311 [00:00<00:00, 1529.29it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 2841.28it/s]
-{"condition": "memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 19.82, "seconds": 88.9}
-{"condition": "shuffled_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 16.6, "seconds": 96.0}
-{"condition": "counterfactual_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 17.48, "seconds": 102.7}
-{"condition": "memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 18.75, "seconds": 56.1}
-{"condition": "shuffled_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 17.29, "seconds": 58.3}
-{"condition": "counterfactual_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 17.77, "seconds": 57.5}
-{"condition": "memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 15.53, "seconds": 39.8}
-{"condition": "shuffled_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 15.82, "seconds": 41.9}
-{"condition": "counterfactual_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 14.65, "seconds": 42.3}
-{"condition": "memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 8.11, "seconds": 51.7}
-{"condition": "shuffled_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 8.01, "seconds": 51.4}
-{"condition": "counterfactual_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 7.62, "seconds": 51.9}
-Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 21185.42it/s]
-{"condition": "memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 21.0, "seconds": 118.6}
-{"condition": "shuffled_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 15.62, "seconds": 120.8}
-{"condition": "counterfactual_memory", "tag": "A", "N": 1, "examples": 1024, "exact_match": 17.19, "seconds": 118.5}
-{"condition": "memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 14.36, "seconds": 81.2}
-{"condition": "shuffled_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 12.01, "seconds": 85.2}
-{"condition": "counterfactual_memory", "tag": "A", "N": 4, "examples": 1024, "exact_match": 13.28, "seconds": 83.4}
-{"condition": "memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 2.15, "seconds": 53.9}
-{"condition": "shuffled_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 1.76, "seconds": 53.2}
-{"condition": "counterfactual_memory", "tag": "A", "N": 16, "examples": 1024, "exact_match": 2.05, "seconds": 55.0}
-{"condition": "memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 0.0, "seconds": 54.8}
-{"condition": "shuffled_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 0.0, "seconds": 55.9}
-{"condition": "counterfactual_memory", "tag": "A", "N": 64, "examples": 1024, "exact_match": 0.0, "seconds": 57.6}
-Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 22701.11it/s]
-{"condition": "memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 14.45, "seconds": 174.2}
-{"condition": "shuffled_memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 11.82, "seconds": 175.4}
-{"condition": "counterfactual_memory", "tag": "B", "N": 1, "examples": 1024, "exact_match": 11.62, "seconds": 178.0}
-{"condition": "memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 13.67, "seconds": 88.7}
-{"condition": "shuffled_memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 13.09, "seconds": 87.9}
-.venv/lib/python3.13/site-packages/triton/knobs.py:504: UserWarning: TRITON_DEFAULT_FP_FUSION is unset: defaulting to FP fusion ENABLED for backward compatibility in Triton 3.9. The default will change to DISABLED in Triton 3.10; set TRITON_DEFAULT_FP_FUSION=1 to keep fusion enabled or =0 to adopt the new default early and silence this warning.
-  warn_once(FP_FUSION_DEFAULT_WARNING)
-{"condition": "counterfactual_memory", "tag": "B", "N": 4, "examples": 1024, "exact_match": 12.21, "seconds": 89.3}
-{"condition": "memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 11.23, "seconds": 63.7}
-{"condition": "shuffled_memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 11.62, "seconds": 66.6}
-{"condition": "counterfactual_memory", "tag": "B", "N": 16, "examples": 1024, "exact_match": 11.33, "seconds": 64.5}
-{"condition": "memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 5.76, "seconds": 75.6}
-{"condition": "shuffled_memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 6.35, "seconds": 79.6}
-{"condition": "counterfactual_memory", "tag": "B", "N": 64, "examples": 1024, "exact_match": 5.96, "seconds": 85.5}
-SENS QUEUE DONE

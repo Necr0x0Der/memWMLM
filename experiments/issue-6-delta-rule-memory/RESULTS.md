@@ -1,10 +1,33 @@
 # Delta-rule memory on TriviaQA: existing heads vs trained interface
 
-Dates: 2026-11-10 to 2026-11-18 (corrections and checks 2026-11-17/18)
+Dates: 2026-11-10 to 2026-11-18 (corrections and checks 2026-11-17/18);
+follow-up checks and small-bank training 2026-11-19 to 2026-11-25 (section
+"Follow-up: small banks with training")
 
 Issue: https://github.com/Necr0x0Der/memWMLM/issues/6
 
 ## Answer
+
+> **Update 2026-11-25 (follow-up, small banks).** The corpus-scale answer
+> below stands. On small banks (1–64 passages per memory, Qwen3-1.7B,
+> 1,024 eval questions) the follow-up found that the memory *can* be made
+> to work with training, for both variants:
+>
+> - **Variant 1 + application-side LoRA + learned per-token β** (trained on
+>   TriviaQA train questions, disjoint from eval): memory EM 54.1 / 41.4 /
+>   26.5 at N = 1 / 4 / 16 vs 20.2 closed-book (same LoRA), far above
+>   shuffled and answer-swapped memories and above a control LoRA trained
+>   with unrelated memory. With 4,096-wide keys it still retrieves at
+>   N = 64 (18.9 vs 15.7 shuffled) but no longer beats closed-book.
+> - **Variant 2, step B** (writer = Qwen's own k/v projections + rank-8
+>   LoRA, reader = q/o LoRA, trained on WikiText fill-in-the-blank only):
+>   memory 48.5 / 25.0 / 10.5 / 4.0 at N = 1 / 4 / 16 / 64, above shuffled
+>   and answer-swapped memories at every N; +31 / +8 over plain Qwen's
+>   closed-book (17.1) at N = 1 / 4. Its reader lowers closed-book to 7.8.
+> - Passages pasted **in context** still beat every memory by 13–49 points
+>   (LoRA: 67.3 at N = 1, 64.7 at N = 64), and the gap grows with N.
+>
+> Untrained (frozen) Variant 1 stays negative in every follow-up check.
 
 **The claim is refuted for both variants on this setup.** A write-once
 delta-rule memory over a 4,342-passage TriviaQA corpus does not let frozen
@@ -353,7 +376,7 @@ problems, recorded in a README amendment before the test below:
    answer starts there in 61 of 1,024 eval passages). Fixed with
    `--sink-prefix` (an `<|endoftext|>` in front, which is what gets
    skipped). Earlier runs are not rerun. Check that this does not hide an
-   effect (`check_first_token.py`, output `records/check_first_token.out`):
+   effect (`check_first_token.py`, output in `records/runs.jsonl`, path `check_first_token.out`):
    on the 483 of 512 dev_in questions whose passage does not start with the
    answer (answer fully written), memory − answer-swapped memory is within
    [−1.2, +0.6] for every global run (both models, all V1 and V2
@@ -496,6 +519,100 @@ paraphrase), which is why the LoRA rows gain the same with `S = 0`; no
 condition ever outputs the swapped-in answer. Per-question predictions:
 `runs/delta-rule/global-v1/runs/*/{memory,counterfactual,null}-*.jsonl`.
 
+## Follow-up: small banks with training (2026-11-19 → 2026-11-25)
+
+Requested by the maintainer's scepticism after the PR. Every step was
+pre-registered as a dated README amendment before its results; full tables,
+CIs and examples are in `NOTES.md` (sections of the same dates), analysis
+scripts in `ci/`. Setup throughout: Qwen3-1.7B, banks-v2 eval (1,024
+questions in banks of N consecutive questions; each question reads the
+memory written from its bank's N passages), greedy exact match, paired
+bootstrap 95% CIs (10,000 resamples, seed 20261111). Controls: *shuffled*
+= N calibration passages; *counterfactual* = the bank's passages with the
+answer swapped. N\* = largest N at which memory beats both with CI > 0.
+Frozen Qwen closed-book: 17.1.
+
+### Sanity checks (frozen Qwen, no training)
+
+| check | finding |
+|---|---|
+| Store alone (`sanity_kv.py`) | Delta-rule store retrieves exact keys ~97–100% up to 2,048 facts (D 8,192); code is correct. |
+| Answer injection (`sanity_inject.py`) | Memory → soft tokens → frozen Qwen: 21 → 62 EM at 256 facts with question keys; passage keys lose most of it. |
+| Uncompressed softmax memory (`run_knn_upper.sh`) | Upper bound for frozen heads: 67.7 / 49.7 / 32.4 / 11.3 at N 1 / 4 / 16 / 64; N\* 64. |
+| Whitened keys (`run_whiten.sh`) | Keys spread out (rank 18 → 88) but no content signal beyond N 1. |
+| Self-read, QA-pair memory (`run_sanity3.sh`) | Storage of whitened + DPFP keys is nearly lossless to 64 passages; storing the question + answer gives +35 at N 1. |
+| Cloze (`sanity_cloze.py`) | With identical query = key tokens the softmax memory copies the passage (98.6% at N 1) but the delta-rule memory never beats no-memory. |
+| Variant 1T, trained feature maps (`run_trained.sh`) | Fails (N\* 0). |
+| Read with the passage's mean query (`run_passage_query.sh`) | Knowing which passage to read does not help: ≤ +3 at N 1. |
+
+Reading: storage works; the frozen linear read cannot pick the answer out of
+a passage. Training the reading side is the remaining lever.
+
+### Variant 1 + LoRA on small banks
+
+Rank-8 LoRA on q_proj / o_proj (all layers) + per-head gates, trained on
+banks of 1 / 4 / 16 TriviaQA *train* passages (no overlap with eval
+questions or answers); memory written by plain Qwen (LoRA off). Control
+LoRA: same recipe with unrelated memory (it learns to switch memory off).
+
+| run | closed-book (same LoRA) | memory N = 1 / 4 / 16 / 64 | N\* |
+|---|---|---|---|
+| LoRA, β = 1 | 20.4 | 46.1 / 28.7 / 21.0 / 17.7 | 16 |
+| + learned β per layer × head (option 1) | 17.5 | 51.4 / 34.3 / 22.7 / 15.9 | 16 |
+| + learned per-token β (option 2) | 20.2 | **54.1 / 41.4 / 26.5** / 15.9 | 16 |
+| option 2 + 4,096-wide keys (DPFP ν 16) | 19.8 | 53.2 / 41.2 / 27.0 / **18.9** | 64 |
+| control LoRA (option 2 recipe) | 20.9 | 21.1 / 20.4 / 20.8 / 19.8 | 0 |
+
+Option 2 at N 16: memory − shuffled +9.4 [+7.0, +11.8], − counterfactual
++9.5 [+7.2, +11.8], − own closed-book +6.2 [+3.8, +8.8]. The bigger memory
+retrieves at N 64 (+3.2 [+1.1, +5.5] vs shuffled) but equals closed-book
+there. Memory helps on questions frozen Qwen gets wrong (N 1, β = 1: 38.9%
+vs 10.0% shuffled), so it is not just recall of known facts. Counterfactual
+follow rate stays low (≤ 4%): the reader rejects the swapped answers, which
+are usually of the wrong type for the question.
+
+### Passages in context instead of memory (`run_context_check.sh`)
+
+| N | in context, frozen | in context, option-2 LoRA | best memory |
+|---|---|---|---|
+| 1 | 70.9 | 67.3 | 54.1 |
+| 4 | 68.4 | 67.9 | 41.4 |
+| 16 | 62.3 | 67.9 | 27.0 |
+| 64 | 53.8 | 64.7 | 18.9 |
+
+The best memory reaches ~80% of the context score at N 1, ~40% at N 16
+and nothing above closed-book at N 64.
+
+### Variant 2 on small banks
+
+**Step A** (`eval_v2_banks.py`, `run_v2_banks.sh`): every earlier V2/V2b
+checkpoint, with or without the V1 LoRA, has N\* = 0 on small banks.
+
+**Step B** (`run_v2q.sh`; `train_lora_banks.py --task cloze --writer-rank 8
+--learn-beta token`): writer = Qwen's own k/v projections plus a rank-8
+LoRA, applied only to what is written (Qwen's own pass is unchanged); reader
+= q/o LoRA + gates + per-token β. Trained on WikiText fill-in-the-blank only
+(no TriviaQA), as issue #6 requires for Variant 2.
+
+| run | closed-book (same model) | memory N = 1 / 4 / 16 / 64 | shuffled | N\* |
+|---|---|---|---|---|
+| step B | 7.8 | **48.5 / 25.0 / 10.5** / 4.0 | 2.7 / 0.9 / 1.3 / 2.6 | 64 |
+| step B + V1 LoRA stacked | 10.3 | 47.5 / 31.2 / 15.7 / 7.6 | 7.4 / 4.4 / 5.4 / 4.5 | 64 |
+| control (unrelated memory) | 22.7 | 23.4 / 22.7 / 22.1 / 21.9 | 22.3 / 21.9 / 21.7 / 21.6 | 0 |
+
+Pre-registered criteria: retrieves at every N; beats the control model at
+N 1 (+25.1 [+21.4, +28.9]); beats its own closed-book at N 1 / 4 / 16.
+Counterfactual follow 27.6% at N 1: it reads what was written. Caveat: the
+WikiText-trained reader lowers closed-book recall (7.8 vs 17.1, one-word
+cloze-style answers); against plain Qwen the memory is +31.4 / +7.9 at
+N 1 / 4 and below it from N 16.
+
+### Limits of the follow-up
+
+One seed per configuration; one model size (1.7B); training banks of at
+most 16 passages; small banks only (not the 4,342-passage corpus memory of
+the original question).
+
 ## Provenance
 
 - All runs were made from base commit `39f76cc` with the experiment code
@@ -503,11 +620,14 @@ condition ever outputs the swapped-in answer. Per-question predictions:
   this PR is the code that produced them. Earlier code states are not
   preserved separately; code changes between runs are listed as amendments in
   `README.md`.
-- `runs/` is gitignored, so `records/` mirrors every run's `meta.json` (full
-  arguments, seed, trainable parameters, optimizer steps, checkpoint step,
-  data-manifest hash, prompt, summary metrics), every dataset `manifest.json`
-  (source and output SHA-256s), `probe_v2.json`, and the queue log of the last
-  runs. Checkpoints (`interface.pt`, LoRA/gate weights), per-question
+- `runs/` is gitignored, so `records/runs.jsonl` holds every run's
+  `meta.json` (full arguments, seed, trainable parameters, optimizer steps,
+  checkpoint step, data-manifest hash, prompt, summary metrics), every dataset
+  `manifest.json` (source and output SHA-256s), training logs
+  (`*.log.json`), `probe_v2.json` and the queue logs, one JSON line per file
+  (`{"path", "content"}`; `pack_records.py`). Until 2026-11-26 these were
+  ~730 separate files under `records/`; they are packed unchanged. Home
+  directory paths in logs are replaced by `~`. Checkpoints (`interface.pt`, LoRA/gate weights), per-question
   predictions and the 16 GB hidden-state cache stay local under
   `runs/delta-rule/`.
 - Test set and tuning: V1 gates/write parameters were tuned on calibration
@@ -565,6 +685,11 @@ Every condition writes the same 4,342 passages (183,667 tokens) once.
   large N for 4B; whether the 4B N = 1 small-bank signal can be made useful
   without the read's harm; whether a read with better query–key matching
   (trained or not) plus enough key space works at corpus scale.
+- Follow-up (small banks): a trained reader (LoRA + per-token β) makes the
+  delta-rule memory useful up to ~16 passages for Variant 1, and a
+  general-text-trained writer/reader initialised from Qwen's heads retrieves
+  for Variant 2. Open: scaling past 64 passages, the V2 reader's damage to
+  closed-book recall, other seeds and model sizes.
 
 ## Reproduction
 
@@ -589,6 +714,19 @@ BOOTSTRAP_REF=runs/delta-rule/qwen3-4b/global/frozen-delta .venv/bin/python $P/b
 .venv/bin/python $P/probe_v2.py --checkpoint runs/delta-rule/v2/d2048-s0/interface.pt
 .venv/bin/python $P/analyze_global.py; .venv/bin/python $P/bootstrap_global.py <run dirs>
 .venv/bin/python $P/select_v1_expand.py
+```
+
+Follow-up (2026-11-19 → 25), in order:
+
+```bash
+.venv/bin/python $P/sanity_kv.py; .venv/bin/python $P/sanity_inject.py
+$P/run_knn_upper.sh; $P/run_whiten.sh; $P/run_sanity3.sh
+.venv/bin/python $P/train_feature_map.py; $P/run_trained.sh   # V1T + cloze check
+$P/run_passage_query.sh; $P/run_passage_query_fixed.sh
+$P/run_lora_banks.sh; $P/run_lora_beta.sh; $P/run_lora_tbeta.sh; $P/run_lora_dtbeta.sh
+$P/run_context_check.sh; $P/run_v2_banks.sh; $P/run_v2q.sh
+.venv/bin/python $P/ci/<script>.py   # tables in NOTES.md (see ci/README.md)
+.venv/bin/python $P/pack_records.py  # refresh records/runs.jsonl
 ```
 
 Every run directory has a `meta.json` with all arguments, data manifest

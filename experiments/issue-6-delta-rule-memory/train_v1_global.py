@@ -54,6 +54,11 @@ class LoRALinear(nn.Module):
         self.scale = alpha / rank
         self.enabled = True
 
+    # expose the wrapped layer's shape so a second LoRA can be stacked on top (2026-11-25)
+    in_features = property(lambda self: self.base.in_features)
+    out_features = property(lambda self: self.base.out_features)
+    weight = property(lambda self: self.base.weight)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.base(x)
         if not self.enabled:

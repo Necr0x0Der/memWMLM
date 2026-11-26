@@ -1,7 +1,0 @@
-{
-  "layer": 14,
-  "model": "Qwen/Qwen3-1.7B",
-  "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
-  "dtype": "bfloat16-bits-int16",
-  "first_token_excluded": true
-}

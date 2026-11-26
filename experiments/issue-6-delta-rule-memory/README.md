@@ -504,3 +504,301 @@ Record dated protocol changes here before inspecting affected results.
   If N*(B) > N*(A) at either gate, the write-up says that the 1.7B result
   depends on the gate; otherwise the caveat is narrowed. Queue
   `run_capacity_sens.sh`, outputs `runs/delta-rule/capacity/1.7b/sens-{A,B}-g{gate}`.
+- 2026-11-19 (before any eval result of these runs): **Upper bound for
+  Variant 1: uncompressed key–value memory with a softmax read**, at the
+  user's request after the sanity checks (`NOTES.md` 2026-11-19). Question:
+  can Qwen's own queries find the right stored passage tokens when there is
+  no compression and no blur? `DeltaMemoryConfig(read="knn")` /
+  `run_banks.py --read knn`: every written token's key and value is kept per
+  KV head (no delta rule); each query attends with one joint softmax over
+  its normal context and its top-k stored keys. Stored keys are RoPE-rotated
+  right-aligned (token j of a passage of L tokens at position j − L), so each
+  passage sits immediately before the prompt, all passages sharing that slot
+  (exact equivalence to the passage pasted in context for one passage and
+  k = all is a unit test). Sink prefix on, sink excluded.
+  - Development on the calibration split only: position-free stored keys
+    (distance 0) swamp attention and were dropped. Setting chosen on
+    calibration (first 256 questions, N = 16) by memory − shuffled EM, ties
+    → fewer keys: layers {all, 7–27, 14–27, 21–27} × k {8, 32}, then k
+    {1, 2, 4, 16} for all layers. Selected: **all layers, k = 4** (36.7 vs
+    shuffled 9.0; closed-book 18.0).
+  - Eval: banks-v2 eval split (1,024 questions), N ∈ {1, 4, 16, 64, 256,
+    1024}; conditions closed_book, memory, shuffled_memory,
+    counterfactual_memory; references from `eval-baselines` (oracle passage,
+    BM25@1, full context). Paired bootstrap 95% CIs as before.
+  - Criterion (fixed now): signal at N if memory − shuffled and memory −
+    counterfactual both have CIs above 0; N* = largest such N. If N* ≥ 64
+    (Variant 1 delta-rule N* was 0–1), Qwen's own query→key matching does
+    find stored content and Variant 1's failure is due to compression/blur
+    (so spreading keys, sharper reads and more room are worth pursuing); if
+    N* ≤ 4, the frozen matching itself is the wall. Also reported: memory vs
+    closed-book (CI), counterfactual follow rate, and the gap to BM25@1 and
+    full context.
+- 2026-11-19 (before any eval result of these runs): **Whitened keys for
+  Variant 1** ("spreading the keys"), at the user's request. Diagnostic
+  (calibration passages only, `NOTES.md`): centred V1 keys use ~17–18 of 128
+  dimensions (effective rank); per-head whitening with calibration key
+  statistics, `W = (C + ε·mean_eig·I)^(-1/2)` applied to centred keys and
+  centred read queries (`--whiten`, ε = 0.1 fixed a priori), raises this to
+  ~88 and improves written-vs-unwritten self-retrieval at N ≤ 16. Test with
+  the capacity-test protocol (README amendment 2026-11-18), Qwen3-1.7B,
+  banks-v2, frozen delta β = α = 1, centred keys, sink prefix: config **W** =
+  whitened D 128, config **WB** = whitened + DPFP ν 16 (D 4,096); gate per
+  config chosen on the calibration split (N 16, 512 questions, memory −
+  shuffled, grid {0.05, 0.1, 0.2, 0.5, 1}, ties → smaller); eval N ∈ {1, 4,
+  16, 64}, closed_book / memory / shuffled / counterfactual, paired CIs.
+  Criterion (fixed now): whitening extends the content signal if N\*(W) >
+  1 or N\*(WB) > 1 (1 = the best N\* of the unwhitened configs A and B at
+  1.7B over the selected and equal-gate checks); otherwise it does not. Also
+  reported: memory vs closed-book. Queue `run_whiten.sh`, outputs
+  `runs/delta-rule/whiten/1.7b/`.
+- 2026-11-19 (before any result of these runs): **Two more Variant 1 sanity
+  checks**, at the user's request (Qwen3-1.7B, banks-v2, frozen delta β = α
+  = 1, centred keys, sink prefix; configs A = D 128, B = DPFP ν 16 with
+  centred queries, W / WB = whitened as above).
+  1. **Self-read** (`sanity_selfread.py`): fill the memory exactly as in
+     `run_banks.py` with N eval passages (N 1–1,024; small N averaged over
+     banks up to 64 passages), then read it through the model's read path
+     (gate 1) using the written tokens' *own keys* as queries — storage
+     only, no question→passage matching. Per head: centred cosine(read,
+     stored value), top-1 identification of the right token among all
+     stored values (chance 1 / tokens), and the cosine for keys of unwritten
+     passages (control). Descriptive; no pass/fail criterion. Reading: if
+     top-1 is high at N where QA fails, storage works and the failure is the
+     question-side matching; if low, the memory does not store tokens
+     retrievably even by their own keys.
+  2. **One question → one answer (QA-pair memory)**: new conditions in
+     `run_banks.py`: `qa_memory` writes, instead of the passage, the exact
+     closed-book prompt of the question followed by the gold answer (so the
+     question's own tokens are the stored keys); `shuffled_qa_memory` = the
+     same for N calibration questions; `counterfactual_qa_memory` = the same
+     prompt with the donor's (answer-swapped) answer, scored for follow.
+     Configs A and B; gate per config on the calibration split (512
+     questions, N 1, `qa_memory` − `shuffled_qa_memory`, grid {0.05, 0.1,
+     0.2, 0.5, 1}, ties → smaller, gates where both EMs are < 1% skipped as
+     collapsed: `select_capacity_gate.py ... 1 qa_memory --skip-collapsed`).
+     Eval N ∈ {1, 4, 16, 64}: closed_book, qa_memory, shuffled_qa_memory,
+     counterfactual_qa_memory, plus passage `memory` at N 1 with the same
+     gate for comparison. Criterion (fixed now): the QA-pair memory works at N
+     if qa_memory − shuffled_qa and qa_memory − counterfactual_qa both have
+     95% CIs above 0; it *helps* if also qa_memory − closed-book > 0 (CI).
+     Also reported: follow rate of the counterfactual answer. Queue
+     `run_sanity3.sh`, outputs `runs/delta-rule/sanity3/`.
+- 2026-11-20 (before any full result; a 64-question smoke run was used only
+  to test the code): **Sanity check 5 — read memory with the same passage**,
+  at the user's request (check 1 as intended: does retrieving by the passage
+  itself, not the question, help?). `sanity_cloze.py`, Qwen3-1.7B,
+  banks-v2: memory filled as in `run_banks.py` (banks of N eval passages,
+  sink prefix, delta β = α = 1); at test time Qwen gets no question but the
+  passage cut right before the answer (sink + passage text up to the answer
+  span, identical tokens to the written ones) and continues greedily (12
+  tokens). Hit = normalised continuation starts with the gold answer (alias
+  or surface). Items with < 3 prefix words skipped. Conditions: none
+  (prefix only), memory, shuffled (N calibration passages), counterfactual
+  (answer-swapped bank; follow rate), oracle (full passage in context
+  before the prefix). Configs A (D 128), B (DPFP ν 16), WB (whitened + DPFP
+  ν 16), gate chosen per config and N on the calibration split (512
+  passages, memory − shuffled, grid {0.05 … 1}, ties → smaller, collapsed
+  gates skipped); K = uncompressed softmax memory (top-k 4, upper bound, no
+  gate). N ∈ {1, 4, 16, 64}. Criterion (fixed now): reading by the same
+  passage gives a content signal at N if memory − shuffled and memory −
+  counterfactual both have paired 95% CIs above 0, and helps if also
+  memory − none > 0 (CI); N* per config. Outputs `runs/delta-rule/cloze/`.
+- 2026-11-20 (before the full training run and any eval; a 100-step smoke
+  run only tested the code): **Trained retrieval for the delta-rule memory
+  ("Variant 1T")**, at the user's request, keeping the delta rule. Sanity
+  checks 3–5 (`NOTES.md`) showed that the uncompressed softmax memory reads
+  stored passages (cloze 98.6% at N 1, 64.6% at N 64) while the delta-rule
+  read returns a blur even with exact queries. Method: per-head learned
+  feature maps (Hedgehog-style, Zhang et al. 2024; `FeatureMaps` in
+  `delta_qwen.py`): `phi(x) = [softmax(Wx+b), softmax(−(Wx+b))]`, W
+  initialised to I, one map per (layer, KV head) for keys (L2-normalised)
+  and per (layer, query head) for queries, plus a per-head read scale; 11.1M
+  parameters, Qwen frozen. The delta rule (β = 1) writes `phi_k(k)` → v and
+  is read with `phi_q(q)`, added to the attention output as in Variant 1.
+  Training (`train_feature_map.py`): layer-wise distillation from the
+  softmax memory (top-k 4) on TriviaQA *training* passages that are not in
+  banks-v2 eval/calibration (2,550 train, 256 validation): target = what
+  the softmax memory adds to each head's attention output on the bank's QA
+  prompts (+ gold answer) and cloze prompts; loss = squared error / mean
+  square of the target (1 = no better than reading nothing); N ∈ {1, 4, 16,
+  64} uniformly, 3,000 steps, AdamW lr 1e-3 one-cycle, seed 0; checkpoint =
+  best validation error. Evaluation, gate fixed at 1 (the scale is
+  trained; no tuning on eval): (1) QA with the capacity-test protocol
+  (banks-v2 eval, 1,024 questions, N ∈ {1, 4, 16, 64}, closed_book /
+  memory / shuffled / counterfactual, paired CIs); (2) the same-passage
+  cloze test (sanity check 5). Criterion (fixed now): trained retrieval
+  works if on QA N\*(T) > 1 (best delta-rule N\* so far: 1), and helps if
+  memory − closed-book has a CI above 0 at some N ≥ 4. Also reported: the
+  validation distillation error by N and layer, and the cloze table next to
+  configs A/B/WB/K.
+- 2026-11-23 (before any run of it; only unit tests ran): **Sanity check
+  6 — answer the question, retrieve with the passage**, at the user's
+  request (check 1 exactly as intended; the cloze test of check 5 changed
+  the prompt). Same protocol as the capacity test (`run_banks.py`, banks-v2,
+  1,024 eval questions, the usual closed-book question prompt, N ∈ {1, 4,
+  16, 64}), but in every layer the memory is read not with each prompt
+  token's own query: when a passage is written, its pre-RoPE query is
+  averaged over the written tokens (per layer and head); every token of the
+  question (and every generated token) reads the memory with the averaged
+  query of the question's own passage. The context attention is unchanged.
+  Conditions (new in `run_banks.py`): `passage_query_memory` (bank state,
+  own passage's query), `shuffled_passage_query_memory` (N calibration
+  passages, own passage's query; facts absent),
+  `counterfactual_passage_query_memory` (answer-swapped bank, query of the
+  stored swapped passage; follow rate), plus closed_book. Configs A
+  (centred, D 128), B (DPFP ν 16), WB (whitened + DPFP ν 16): gate chosen
+  per config and N on the calibration split (first 512 questions, memory −
+  shuffled of the new conditions, grid {0.05 … 1}, ties → smaller,
+  collapsed gates skipped); K = uncompressed softmax memory (top-k 4, no
+  gate; the averaged query is rotated to the reading token's position).
+  Criterion (fixed now): retrieval by the passage gives a content signal at
+  N if memory − shuffled and memory − counterfactual both have paired 95%
+  CIs above 0 (N\* per config, as before), and helps if also memory −
+  closed-book > 0 (CI). Compared with the question-query results of the
+  same configs (N\* = 1 at best). Outputs `runs/delta-rule/passage-query/`.
+- 2026-11-23 (after the check 6 results): **Sanity check 6, fixed-gate
+  row.** The per-N gate choice made the check 6 scores incomparable across N
+  (A: 9.4 / 17.1 / 4.9 at N 4 / 16 / 64 used gates 0.2 / 0.05 / 0.05). For a
+  like-for-like comparison across N, the eval is rerun with the same gate
+  0.05 (the smallest grid value) for every N ∈ {1, 4, 16, 64} and configs
+  A, then B, WB (same conditions, `--tag <config>-fixed`). Descriptive only:
+  the N\* criterion above is unchanged.
+- 2026-11-24 (before any training or evaluation; only a smoke run to test
+  the code): **V1-LoRA on small banks**, at the user's request. The
+  original V1-LoRA (issue nuance "it likely needs LoRA / interface
+  adaptation") was trained only with the global memory, whose delta state
+  was ill-conditioned (Frobenius norm ~250× a small-bank state), so it never
+  tested whether LoRA can teach Qwen to read a *small* memory. Method
+  (`train_lora_banks.py`): config A (delta β = α = 1, centred keys, D 128,
+  sink prefix); writing always with frozen Qwen (LoRA off); application
+  side rank-8 LoRA on `q_proj` and `o_proj` of every layer (α 16, 1.84 M
+  parameters, the original recipe) plus per-layer × per-query-head gates
+  (448, init 0.1). Training data: TriviaQA *train* questions with passages
+  that are not in banks-v2 eval/calibration (the Variant 1T pool, 2,806
+  rows; 256 held out for validation loss). Each step: N ∈ {1, 4, 16}
+  uniformly; 8 prompts from 8 / N banks of N fresh random passages; each
+  prompt reads its own bank's state; loss = cross-entropy on the gold answer
+  surface + `<|im_end|>` after the closed-book prompt. AdamW (LoRA lr 1e-4,
+  gates 1e-2), 2,000 steps, seed 0, final checkpoint (no selection).
+  **Control (same recipe, seed 0):** LoRA trained with *unrelated* memory
+  (each prompt reads a bank of N other random training passages, its own
+  passage absent): learns the same task and read perturbation but cannot
+  learn to use memory. Evaluation (`run_banks.py --lora`, gates = trained
+  values, no tuning): banks-v2 eval, 1,024 questions, N ∈ {1, 4, 16, 64},
+  closed_book (LoRA on, no memory), memory, shuffled_memory,
+  counterfactual_memory (follow rate), for both LoRAs; frozen closed-book
+  17.1 as reference. Criterion (fixed now): N\* per LoRA as before (memory
+  − shuffled and memory − counterfactual CIs > 0). **LoRA makes the memory
+  work** if N\*(LoRA) > 1 (frozen A: 1) and at N\* memory(LoRA) −
+  memory(control LoRA) has a CI > 0 (the gain is not plain fine-tuning);
+  **it helps** if also memory − closed-book (same LoRA) has a CI > 0 there.
+  Outputs `runs/delta-rule/lora-banks/`.
+- 2026-11-24 (after the V1-LoRA small-bank result, before any run of
+  this; only unit tests and a smoke run): **V1-LoRA + learned β, option
+  1**, at the user's request (option 2, a per-token β from the written
+  token's hidden state, only if option 1 does not help). Same recipe,
+  data, seed and evaluation as "V1-LoRA on small banks", plus a trained
+  write strength per layer × KV head, β = sigmoid(θ) (224 parameters, init
+  0.95, lr 1e-2). The write uses frozen Qwen keys/values as before but is
+  differentiable in β (exact chunked delta rule, `write_chunked`; unit test:
+  identical to the fixed-β write). Control: the unrelated-memory LoRA with
+  learned β (same recipe). Validation banks are drawn per fixed seed and
+  rebuilt with the current β (not comparable to the previous run's
+  validation numbers; the evaluation is). Criterion (fixed now): learned β
+  **helps** if, at N = 16 or N = 64, memory beats shuffled and
+  counterfactual (CIs > 0) **and** memory(β-LoRA) − memory(fixed-β LoRA,
+  the previous run) has a CI > 0 at that N; the N\* and control-LoRA
+  criteria of the previous amendment are reported as well. Outputs
+  `runs/delta-rule/lora-banks/1.7b/*-beta*`.
+- 2026-11-24 (after option 1's result: criterion not met; before any run
+  of this, only unit tests and a 30-step smoke run): **V1-LoRA + per-token
+  β, option 2**, per the user's plan. Same recipe, data, seed, control
+  and evaluation as option 1, but β is computed for every written token:
+  β = sigmoid(w_{l,h} · x_t + b_{l,h}), x_t = the token's attention input
+  (post `input_layernorm`) at layer l from frozen Qwen, per layer × KV head
+  (`TokenBeta`, 28 × 8 × 2,049 = 459 k parameters; w = 0 and b =
+  logit(0.95) at init, i.e. option 1's start; lr 1e-4 — the smoke run at
+  1e-3 saturated β within 15 steps). Criterion (fixed now): as option 1,
+  compared with the fixed-β LoRA: helps if at N = 16 or 64 memory beats
+  shuffled and counterfactual (CIs > 0) and memory(per-token β) −
+  memory(fixed-β LoRA) has a CI > 0 at that N; also reported vs option 1.
+- 2026-11-24 (after option 2's result: criterion met at N = 16, nothing
+  at N = 64; before any run of this, only unit tests and a 50-step smoke
+  run): **per-token β + bigger memory**, at the user's request, to push past
+  16 passages. Same recipe, data, seed, control and evaluation as option 2
+  (per-token β, LoRA rank 8 on q/o_proj, per-head gates, training sizes
+  N ∈ {1, 4, 16}, 2,000 steps, final checkpoint), with one change: the
+  memory is config B — keys and read queries centred with the calibration
+  key mean, then DPFP ν = 16 (`--key-expand 16 --center-queries`; key width
+  128 → 4,096, state 32× larger). The learned-β write with expanded keys is
+  the same exact chunked delta rule, checkpointed per layer and per chunk
+  (unit test: identical to the fixed-β expanded write at constant β, and
+  the read with grad equals the read without). Criterion (fixed now): the
+  bigger memory **pushes past 16** if at N = 64 memory beats shuffled and
+  counterfactual (CIs > 0) **and** memory(this) − memory(option 2) has a
+  CI > 0 at N = 64; the N\*, control-LoRA and closed-book comparisons of
+  the earlier amendments, and the difference vs option 2 at every N, are
+  reported as well. Outputs `runs/delta-rule/lora-banks/1.7b/*-dtbeta*`.
+- 2026-11-24 (before any run of this): **sanity check — passages in the
+  context instead of memory**, at the user's request. Frozen Qwen already
+  has these (`runs/delta-rule/eval-baselines`, original stage: oracle
+  passage, answer-swapped passage, full context of the N bank passages);
+  `oracle_passage` is rerun once to confirm it reproduces. New: the same
+  conditions with the option 2 LoRA on (per-token β run, memory off):
+  closed_book, oracle_passage, counterfactual_oracle, full_context at N ∈
+  {1, 4, 16, 64}. Reported next to the memory results of the LoRA runs,
+  with paired bootstrap CIs; no pass/fail criterion (a reference, not a
+  hypothesis). Outputs `runs/delta-rule/lora-banks/1.7b/context-tbeta`.
+- 2026-11-25 (before any run of this; only a 64-question smoke run):
+  **Variant 2 on small banks (step A)**, at the user's request. The
+  existing Variant 2 interfaces (trained on WikiText only; nothing
+  retrained) were only evaluated on the global corpus (4,342 passages).
+  Here they get the Variant 1 small-bank protocol (`eval_v2_banks.py`):
+  banks-v2 eval, 1,024 questions, N ∈ {1, 4, 16, 64}; closed_book (S off),
+  memory, shuffled_memory (N calibration passages, same offsets as
+  `run_banks.py`), counterfactual_memory (follow rate). Checkpoints: the
+  pre-registered V2 d ∈ {512, 1024, 2048, 4096} (seed 0, trained on banks
+  of 512–2,048 sentences) and the final V2b pilot (d 1024, trained on banks
+  of 1/4/16, `v2b-pilot/d1024-fewshot`). Each is run twice: plain Qwen, and
+  with the Variant 1 option 2 LoRA on the application side (q/o_proj only;
+  passages still written by plain Qwen; the user's suggestion). The LoRA
+  was trained on TriviaQA *train* questions with Variant 1 memory, so the
+  "+ LoRA" rows are labelled as such and compared with the LoRA's own
+  closed-book (20.2), not with plain Qwen; the V2 interface itself stays
+  general-corpus trained, as issue #6 requires. Criterion (fixed now): a
+  run retrieves at N if memory beats shuffled and counterfactual (paired
+  bootstrap CIs > 0); it helps at N if also memory − closed-book (same
+  model) has a CI > 0. Outputs `runs/delta-rule/v2-banks/`.
+- 2026-11-25 (after step A: no Variant 2 interface retrieves on small
+  banks; before any run of this, only unit tests, a 100-step smoke run and
+  a 64-question smoke evaluation): **Variant 2, step B — writer/reader
+  initialised from Qwen's heads, trained on general text only**, at the
+  user's request (issue #6: the interface is trained on a general corpus,
+  not on TriviaQA). Every layer, every KV head (config A memory: centred
+  keys, D 128, delta rule, sink prefix): writer = Qwen's k/v_proj (+ k_norm)
+  plus a trainable rank-8 update (`WriterLoRA`; applied to the captured
+  attention inputs, so Qwen's own pass over the passage is unchanged);
+  reader = rank-8 LoRA on q_proj and o_proj (on only while answering);
+  per-head gates (init 0.1); per-token β (`TokenBeta`, init 0.95, lr 1e-4).
+  Untrained (both B = 0) it is exactly frozen Variant 1. Training
+  (`train_lora_banks.py --task cloze --writer-rank 8 --learn-beta token`):
+  WikiText-103 sentence cloze (`wikitext-cloze-v1`, already filtered
+  against TriviaQA aliases), banks of N ∈ {1, 4, 16} sentences, 8 cloze
+  prompts per step (V2b prompt with 3 worked examples), loss on the blanked
+  word + `<|im_end|>`, 2,000 steps, seed 0, final checkpoint; key mean
+  from 256 WikiText sentences. No TriviaQA question, passage or answer is
+  used in training. Control: the same with unrelated sentences in memory.
+  Evaluation (`run_banks.py --lora`; at evaluation the key mean is from the
+  banks-v2 calibration split, as for every Variant 1 run): banks-v2 eval,
+  1,024 questions, N ∈ {1, 4, 16, 64}, closed_book, memory,
+  shuffled_memory, counterfactual_memory, for both models; plus the main
+  model with the Variant 1 option 2 LoRA stacked (`--extra-lora`;
+  labelled: that LoRA was trained on TriviaQA train, compared with its own
+  closed-book only). Criterion (fixed now): **B retrieves** at N if memory
+  beats shuffled and counterfactual (CIs > 0); **B works** if it retrieves
+  at some N and there memory − control-model memory has a CI > 0; **it
+  helps** if also memory − closed-book (same model) has a CI > 0. Also
+  reported: WikiText validation loss with the right vs unrelated memory.
+  The d ∈ {512…4096} sweep (bigger keys) only if B works. Outputs
+  `runs/delta-rule/v2q/`.

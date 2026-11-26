@@ -48,7 +48,7 @@ Use this at the end of an experiment or before handing work to another agent.
 
 ## 2026-11-25 experiment handoff (branch pushed; PR open)
 
-- Branch: `multicommit-memory`; commit `f05eb90`; pushed to `origin` (remote branch `f05eb908a903d132fbe47027a1295254d4390357`); PR #17 open against `main`.
+- Branch: `multicommit-memory`; latest commit `eea2ec2`; pushed to `origin` (remote branch `eea2ec2dad61512ce2364e18aeb68e576383d43f`); PR #17 open against `main`.
 - Files: `experiments/multicommit-memory/{generate.py, generate_simple.py, generate_two.py, common.py, train.py, evaluate.py, README.md, RESULTS.md}`; `RESEARCH-JOURNAL.md`; `docs/decisions.md` entry.
 - Datasets: `datasets/multicommit-memory/`, `datasets/multicommit-simple/`, `datasets/multicommit-simple3/`, `datasets/multicommit-two/`.
 - Checkpoints: `runs/multicommit-memory/simple3.pt` (step 1500), `runs/multicommit-memory/two.pt` (step 1500), `runs/multicommit-memory/two_long.pt` (step 3000), plus older diagnostic checkpoints.

@@ -2,7 +2,7 @@
 
 Date: 2026-11-25 (MSK)
 Working directory: `/home/inex/work/memWMLM`
-Branch: `multicommit-memory` (local only; no remote pushes)
+Branch: `multicommit-memory` (pushed to `origin`; PR #17 open against `main`)
 GPU: NVIDIA RTX 4090, 24,564 MiB, CUDA 12.1
 Environment: `/home/inex/anaconda3/envs/imgen` (`torch 2.9.0+cu128`, `transformers 4.57.3`)
 Backbone: `artifacts/models/Qwen3-1.7B`, revision `70d244cc86ccca08cf5af4e1e306ecf908b1ad5e`
@@ -178,7 +178,9 @@ Evaluation outputs:
 - `runs/multicommit-memory/eval_src_gate2_300.json`
 - `runs/multicommit-memory/simple_test.json`
 - `runs/multicommit-memory/simple3_test.json`
-- `runs/multicommit-memory/two_test.json` (pending)
+- `runs/multicommit-memory/two_test_400.json`
+- `runs/multicommit-memory/two_long_test.json`
+- `runs/multicommit-memory/two_long_test_400.json`
 
 Representative commands:
 ```text
@@ -217,4 +219,5 @@ PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
    reader that selects by name rather than by raw position.
 4. Do not tune the complex-task architecture further until the boundary is
    clear; preserve the negative/partial runs and controls.
-5. Keep all work local; no remote push or issue creation was performed.
+5. Branch `multicommit-memory` is pushed to `origin` and PR #17 is open against
+   `main`; no direct push to `main` was made.

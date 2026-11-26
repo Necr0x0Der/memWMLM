@@ -224,9 +224,9 @@ Caveats (open): (1) the sentence targets are shorter than whole passages, so `me
 
 **Decision (forward, open): pause repro.** Two options are on the table: (a) stop the reproduction line for now and move to the semantic-memory / quiz direction (the 2026-11-01 follow-up), or (b) keep reproduction but switch from WikiText to *cleaner* texts (pre-processed, header-stripped) that better fit the dense per-position reproduction target. No architecture change is decided; the position-aligned writer/reader, the selective-repro modes added to training/eval/baseline, and the `--init-checkpoint` transfer all stay as-is. The selective-repro eval (`evaluate_repro_memory.py` / `evaluate_repro_baseline.py` with `--sentence-mode random --whole-prob 0.0`) remains the way to score any future repro checkpoint on matched per-position questions.
 
-## 2026-11-25 — Multi-commit versioned-fact probe (local, no remote)
+## 2026-11-25 — Multi-commit versioned-fact probe (branch pushed; PR #17)
 
-A new local branch `multicommit-memory` tests whether the position-aligned
+A new branch `multicommit-memory` tests whether the position-aligned
 memory can answer facts from earlier commits, not only the last commit. This
 is a separate synthetic task, not a bAbI or reproduction rerun.
 
@@ -250,7 +250,9 @@ is a separate synthetic task, not a bAbI or reproduction rerun.
   reader does not bind two independent entity histories, so the single-entity
   claim must not be extended to multi-entity memory without a new mechanism.
 
-The experiment is local only: no push, no GitHub issue, no remote artifact.
+The experiment is committed on branch `multicommit-memory` and pushed to
+`origin`; PR #17 is open against `main`. No separate GitHub issue was created.
 Reusable artifacts are under `datasets/multicommit-*`,
-`runs/multicommit-memory/`, and `RESEARCH-JOURNAL.md`.
+`runs/multicommit-memory/`, and `RESEARCH-JOURNAL.md`; checkpoints under `runs/`
+remain local/ignored.
 

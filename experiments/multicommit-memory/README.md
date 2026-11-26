@@ -1,8 +1,8 @@
 # Multi-commit memory experiment
 
 Date: 2026-11-25
-Branch: `multicommit-memory` (local only; no remote push)
-Issue: not created locally (repository issue workflow not exercised)
+Branch: `multicommit-memory`; pushed to `origin`; PR #17 open against `main`
+PR: #17 (open), base `main`; no separate issue was created
 
 ## Claim
 

@@ -99,6 +99,8 @@ def main() -> None:
         "train_sha256": sha256(train_path),
         "test_sha256": sha256(test_path),
     }
+    manifest_path = output_dir / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
 
 

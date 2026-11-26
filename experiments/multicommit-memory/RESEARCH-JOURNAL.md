@@ -46,9 +46,13 @@ LoRA rank 8, batch 8.
 
 | Run | Result |
 |---|---|
-| 1000 steps, lr 3e-4 | memory 9.0%, full_context 60.3%, last_commit_only 9.0%, no_source 7.5%, null_memory 7.7%, shuffled_memory 9.0% |
+| 1000 steps, lr 3e-4 | memory 9.0%, full_context 60.3%, last_commit_only 9.0%, no_source 7.5%, null_memory 7.7%, shuffled_memory 8.93% |
 | 3000 steps, lr 3e-4 | loss became `NaN` at step 1600 and stayed `NaN`; checkpoint not usable |
-| 1200 steps, lr 1e-4, source LoRA, gate `-2`, clip 1.0 | memory 11.0%, full_context 62.0%, last_commit_only 8.0%, no_source 8.7%, null_memory 8.3%, shuffled_memory 11.0%, counterfactual follow 12.7% / resist 8.7% |
+| 1200 steps, lr 1e-4, source LoRA, gate `-2`, clip 1.0 | memory 11.0%, full_context 62.0%, last_commit_only 8.0%, no_source 8.7%, null_memory 8.3%, shuffled_memory 8.67%, counterfactual follow 12.7% / resist 8.7% |
+
+The earlier row-adjacent shuffle values (9.0% and 11.0%) were invalid because the
+donor usually came from the same episode; the corrected episode-level values are
+8.93% and 8.67%, near `null_memory` and `no_source`.
 
 Interpretation: this task did **not** show causal multi-commit memory. Memory,
 last-commit-only, and shuffled memory all sat near chance (~8–11%), so the
@@ -79,20 +83,28 @@ Test results (1200 examples, unseen names):
 | `memory` (all 3 commits) | **99.75%** | 99.75% | 100.0% | 99.5% |
 | `full_context` | 86.08% | 100.0% | 58.25% | 100.0% |
 | `last_commit_only` | 50.25% | 100.0% | 47.5% | **3.25%** |
-| `shuffled_memory` (memory from another episode) | 72.33% | 99.75% | 17.75% | 99.5% |
+| `shuffled_memory` (memory from a different episode) | 16.92% | 14.75% | 16.75% | 19.25% |
 | `null_memory` (zeroed cells) | 16.83% | 14.5% | 20.0% | 16.0% |
 | `no_source` (application only) | 17.33% | 14.5% | 20.0% | 17.5% |
 | counterfactual memory | follow 99.83% / resist 0.0% | — | — | — |
+
+Task scope: the story is `lives in c1`, `moved c1 -> c2`, `moved c2 -> c3`.
+`previous` is explicitly in document 3 and `original` is in document 2; document
+1 is not needed for any answer. The memory is concatenated, not overwritten, so
+this tests accumulation and reading, not first-document necessity, full-history
+reconstruction, update/eviction semantics, or long write sequences.
 
 Interpretation: this is a positive, causal multi-commit result for the simple
 single-entity case. `last_commit_only` answers current facts but almost never
 answers the original fact (3.25%); full context also struggles on `previous`
 (58.25%). The trained memory answers all three question types near ceiling, and
-counterfactual source edits are followed. The `shuffled_memory` control is high
-on current/original because another episode's memory can contain the same city
-by chance, but it collapses on `previous` (17.75%), so temporal order matters.
+counterfactual source edits are followed. The corrected episode-level
+`shuffled_memory` control is near chance (16.92%, with current/previous/original
+all near chance), so the memory gain is source-specific. The earlier row-adjacent
+shuffle value (72.33%) was invalid because it usually reused the same episode.
 This supports a narrow claim about one entity and ordered commits; it does not
-show multi-person binding.
+show multi-person binding, first-document necessity, or full history
+reconstruction.
 
 ## 4. Experiment C — two-entity boundary probe (negative / boundary)
 
@@ -111,11 +123,11 @@ examples only; the 3000-step checkpoint was evaluated on all 2000 test examples.
 | `two.pt` (1500 steps, 400 examples) | `memory` | 15.25% | 15.6% | 13.1% | 18.75% |
 | `two.pt` (1500 steps, 400 examples) | `full_context` | **80.0%** | 89.4% | 60.6% | 100.0% |
 | `two.pt` (1500 steps, 400 examples) | `last_commit_only` | 15.0% | 14.4% | 14.4% | 17.5% |
-| `two.pt` (1500 steps, 400 examples) | `shuffled_memory` | 15.5% | 15.6% | 13.75% | 18.75% |
+| `two.pt` (1500 steps, 400 examples) | `shuffled_memory` | 15.75% | 15.0% | 15.0% | 18.75% |
 | `two_long.pt` (3000 steps, 2000 examples) | `memory` | **53.75%** | 38.125% | 46.375% | 99.75% |
 | `two_long.pt` (3000 steps, 2000 examples) | `full_context` | **81.45%** | 89.75% | 63.875% | 100.0% |
 | `two_long.pt` (3000 steps, 2000 examples) | `last_commit_only` | 26.25% | 21.875% | 36.875% | 13.75% |
-| `two_long.pt` (3000 steps, 2000 examples) | `shuffled_memory` | 47.35% | 38.125% | 30.375% | 99.75% |
+| `two_long.pt` (3000 steps, 2000 examples) | `shuffled_memory` | 16.25% | 16.75% | 15.125% | 17.5% |
 | `two_long.pt` (3000 steps, 2000 examples) | `null_memory` | 16.0% | 17.375% | 16.0% | 13.25% |
 | `two_long.pt` (3000 steps, 2000 examples) | `no_source` | 15.65% | 17.375% | 16.0% | 11.5% |
 | `two_long.pt` (3000 steps, 2000 examples) | counterfactual | follow 55.5% / resist 9.85% | — | — | — |
@@ -124,8 +136,10 @@ Interpretation: the 1500-step checkpoint is undertrained and near chance, so it
 is not a clean architecture verdict. At 3000 steps the memory learns the
 `original` question almost perfectly (99.75%) and reaches 53.75% overall, but
 `current` (38.125%) and `previous` (46.375%) remain well below full context
-(81.45%). Last-commit-only is 26.25% and shuffled memory 47.35%, so the gain is
-only partly source-specific. This is a **partial / boundary** result: the
+(81.45%). Last-commit-only is 26.25% and the corrected shuffled memory is
+16.25%, near null/no-source; so the gain is source-specific, but the reader still
+does not bind two entity histories. The old row-adjacent shuffle value (47.35%)
+was invalid. This is a **partial / boundary** result: the
 position-aligned reader does not bind two independent entity histories at the
 single-entity level. The single-entity claim should not be generalized to
 multi-entity memory without a new mechanism (explicit entity slots or
@@ -154,6 +168,13 @@ entity-specific query keys).
 - Whether the result scales to larger memories, more commits, or real corpora.
 - The exact cause of the complex-task failure: capacity, optimization, gate
   initialization, question ambiguity, or task difficulty.
+- Whether the memory architecture is superior to full context: `memory` uses
+  application-side LoRA while `full_context` is the original Qwen, so the 99.75%
+  vs 86.08% gap is not an isolated architectural comparison; a matched
+  full-context LoRA baseline is needed.
+- First-document necessity, full-history reconstruction, or overwrite/update
+  semantics: the simple task's `previous` and `original` facts are in documents 3
+  and 2, and the memory sidecar concatenates blocks rather than updating them.
 - Statistical significance beyond the large observed gaps; no multi-seed
   replication yet.
 
@@ -183,13 +204,19 @@ Checkpoints:
 - `runs/multicommit-memory/checkpoint_3000.pt` (NaN run; not usable)
 
 Evaluation outputs:
-- `runs/multicommit-memory/eval_1000.json`
-- `runs/multicommit-memory/eval_src_gate2_300.json`
+- `runs/multicommit-memory/eval_1000.json` (invalid shuffle control; historical)
+- `runs/multicommit-memory/eval_1000_fixed_shuffle_seed0.json`
+- `runs/multicommit-memory/eval_src_gate2_300.json` (invalid shuffle control; historical)
+- `runs/multicommit-memory/eval_src_gate2_300_fixed_shuffle_seed0.json`
 - `runs/multicommit-memory/simple_test.json`
-- `runs/multicommit-memory/simple3_test.json`
-- `runs/multicommit-memory/two_test_400.json`
-- `runs/multicommit-memory/two_long_test.json`
-- `runs/multicommit-memory/two_long_test_400.json`
+- `runs/multicommit-memory/simple3_test.json` (invalid shuffle control; historical)
+- `runs/multicommit-memory/simple3_test_fixed_shuffle_seed0.json`
+- `runs/multicommit-memory/two_test_400.json` (invalid shuffle control; historical)
+- `runs/multicommit-memory/two_test_400_fixed_shuffle_seed0.json`
+- `runs/multicommit-memory/two_long_test.json` (invalid shuffle control; historical)
+- `runs/multicommit-memory/two_long_test_fixed_shuffle_seed0.json`
+- `runs/multicommit-memory/two_long_test_400.json` (invalid shuffle control; historical)
+- `runs/multicommit-memory/two_long_test_400_fixed_shuffle_seed0.json`
 
 Representative commands (run from the repository root with the Python environment
 that has the required `torch`/`transformers`):
@@ -213,7 +240,7 @@ PYTHONPATH=src python \
   --test-file datasets/multicommit-simple3/test.jsonl \
   --train-file datasets/multicommit-simple3/train.jsonl \
   --split test --max-examples 1200 \
-  --output runs/multicommit-memory/simple3_test.json
+  --output runs/multicommit-memory/simple3_test_fixed_shuffle_seed0.json
 ```
 
 ## 8. Next steps

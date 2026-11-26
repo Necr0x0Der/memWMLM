@@ -65,6 +65,23 @@ def summarize(predictions: list[str], records: list[dict]) -> dict:
     }
 
 
+def build_shuffled_donor_map(records: list[dict], seed: int) -> tuple[dict[str, str], int]:
+    """Map each episode to a different episode, with all its questions sharing that donor."""
+    episode_ids = list(dict.fromkeys(record["episode_id"] for record in records))
+    if len(episode_ids) < 2:
+        raise ValueError("Shuffled-memory control requires at least two episodes")
+    rng = random.Random(seed)
+    offset = rng.randrange(1, len(episode_ids))
+    donor_map = {
+        episode_id: episode_ids[(index + offset) % len(episode_ids)]
+        for index, episode_id in enumerate(episode_ids)
+    }
+    if any(donor == episode_id for episode_id, donor in donor_map.items()):
+        raise AssertionError("Shuffled donor map contains a fixed point")
+    return donor_map, offset
+
+
+
 def main() -> None:
     args = parse_args()
     if args.max_examples is not None and args.max_examples <= 0:
@@ -114,6 +131,16 @@ def main() -> None:
         write_selected_documents(model, tokenizer, formatter, record, [0, 1, 2])
         for record in records
     ]
+    memory_by_episode: dict[str, torch.Tensor] = {}
+    for record, memory in zip(records, memories, strict=True):
+        memory_by_episode.setdefault(record["episode_id"], memory)
+
+    donor_map, donor_offset = build_shuffled_donor_map(records, args.seed)
+    fixed_point_records = sum(
+        1 for record in records if donor_map[record["episode_id"]] == record["episode_id"]
+    )
+    if fixed_point_records:
+        raise AssertionError("Shuffled donor mapping retains the original episode")
 
     predictions_memory = [
         predict_with_memory(model, tokenizer, formatter(render_application(record)), candidates, memory)
@@ -123,14 +150,15 @@ def main() -> None:
     predictions_null = []
     predictions_shuffled = []
     predictions_last_commit = []
-    for index, record in enumerate(records):
+    for record, memory in zip(records, memories, strict=True):
         predictions_null.append(
             predict_with_memory(
                 model, tokenizer, formatter(render_application(record)), candidates,
-                zero_memory(memories[index]),
+                zero_memory(memory),
             )
         )
-        shuffled_memory = memories[(index + 1) % len(memories)]
+        donor_episode = donor_map[record["episode_id"]]
+        shuffled_memory = memory_by_episode[donor_episode]
         predictions_shuffled.append(
             predict_with_memory(
                 model, tokenizer, formatter(render_application(record)), candidates,
@@ -205,6 +233,13 @@ def main() -> None:
         "examples": len(records),
         "variants": variants,
         "counterfactual_memory": counterfactual,
+        "shuffle_control": {
+            "seed": args.seed,
+            "episodes": len(donor_map),
+            "offset": donor_offset,
+            "fixed_point_records": fixed_point_records,
+            "donor_mapping": donor_map,
+        },
     }
 
     print(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False))

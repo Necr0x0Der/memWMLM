@@ -77,7 +77,7 @@ PYTHONPATH=src python \
   --test-file datasets/multicommit-simple3/test.jsonl \
   --train-file datasets/multicommit-simple3/train.jsonl \
   --split test --max-examples 1200 \
-  --output runs/multicommit-memory/simple3_test.json
+  --output runs/multicommit-memory/simple3_test_fixed_shuffle_seed0.json
 ```
 
 ## Main result
@@ -89,22 +89,34 @@ PYTHONPATH=src python \
 | `memory` | **99.75%** |
 | `full_context` | 86.08% |
 | `last_commit_only` | 50.25% |
-| `shuffled_memory` | 72.33% |
+| `shuffled_memory` | 16.92% |
 | `null_memory` | 16.83% |
 | `no_source` | 17.33% |
 | counterfactual | follow 99.83%, resist 0.0% |
 
 The discriminator is the `original` question: `last_commit_only` answers it
 3.25% of the time, while full memory answers it 99.5%. `previous` is 100% under
-memory but 58.25% under full context. This supports the narrow multi-commit
+memory but 58.25% under full context. The corrected episode-level shuffle is
+near chance (16.92%), so the memory gain is source-specific; the earlier
+72.33% row-adjacent shuffle was invalid. This supports the narrow multi-commit
 claim for the single-entity setting.
+
+Scope: the story is `lives in c1`, `moved c1 -> c2`, `moved c2 -> c3`; `previous`
+is in document 3 and `original` in document 2, so document 1 is not required.
+The result shows "more than the last commit", not first-document necessity or
+full-history reconstruction. Memory blocks are concatenated, not overwritten,
+so overwrite/eviction/long-write semantics are not tested. `full_context` is the
+original Qwen while memory uses application-side LoRA; the 99.75% vs 86.08% gap
+is not an isolated architecture comparison.
 
 ## Boundary
 
 The complex three-person, 12-city task did not learn causal multi-commit
-retrieval: memory was 9–11%, close to last-commit-only and shuffled controls.
+retrieval: memory was 9–11%, close to last-commit-only and the corrected
+shuffled controls (8.7–8.9%).
 The two-entity probe is undertrained at 1500 steps (15.25%) and reaches 53.75%
 memory accuracy at 3000 steps while full context reaches 81.45%; `current` and
-`previous` remain low. The single-entity positive result is therefore a narrow
-claim, not evidence of general multi-entity binding. See `RESULTS.md` and
-`RESEARCH-JOURNAL.md` for full metrics and caveats.
+`previous` remain low, and the corrected shuffled control is 16.25%, near null.
+The single-entity positive result is therefore a narrow claim, not evidence of
+general multi-entity binding. See `RESULTS.md` and `RESEARCH-JOURNAL.md` for full
+metrics and caveats.

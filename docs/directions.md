@@ -107,7 +107,12 @@ Initial experiments inside this direction:
   content: equal with an empty or an answer-swapped memory, while BM25@1 RAG gained +34 points. On small banks, 32× more key space did not
   extend the content signal, so the frozen read itself is limiting; open
   are the interface objective and, at corpus scale, capacity (see
-  `experiments/issue-6-delta-rule-memory/RESULTS.md`);
+  `experiments/issue-6-delta-rule-memory/RESULTS.md`). *Update
+  (2026-11-26): on small banks the memory works once the read is trained:
+  Qwen's own heads + LoRA and learned per-token β reach 54 / 41 / 27 EM at
+  1 / 4 / 16 passages (closed-book 20); a writer/reader on Qwen's heads
+  trained only on WikiText retrieves (48.5 at one passage). Still far below
+  passages in context, and not useful at 64 passages;*
 - RAG/full-context baselines with matched corpus, top-k, and prompt.
 
 Important caveats:
@@ -153,7 +158,10 @@ Related observations:
   massive-activation dimension, and the raw keys were nearly collinear (mean
   cosine 0.46). This is consistent with predictive features being poor memory
   keys, but it does not separate representation from objective or training
-  budget.
+  budget. *Update (2026-11-26):* a writer/reader built on Qwen's own
+  attention heads (LoRA on k/v/q/o, all layers), trained on the same
+  WikiText cloze, does retrieve, so the layer-14 interface's failure was
+  not caused by the general-text training data alone.
 - JEPA predicts in latent space instead of reconstructing the input. A proposed
   extension is a **gated predictive autoencoder**: keep reconstruction loss but
   gate it, so the model learns content state rather than only predictive features.

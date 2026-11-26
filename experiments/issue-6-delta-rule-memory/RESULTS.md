@@ -8,26 +8,33 @@ Issue: https://github.com/Necr0x0Der/memWMLM/issues/6
 
 ## Answer
 
-> **Update 2026-11-25 (follow-up, small banks).** The corpus-scale answer
-> below stands. On small banks (1–64 passages per memory, Qwen3-1.7B,
-> 1,024 eval questions) the follow-up found that the memory *can* be made
-> to work with training, for both variants:
->
-> - **Variant 1 + application-side LoRA + learned per-token β** (trained on
->   TriviaQA train questions, disjoint from eval): memory EM 54.1 / 41.4 /
->   26.5 at N = 1 / 4 / 16 vs 20.2 closed-book (same LoRA), far above
->   shuffled and answer-swapped memories and above a control LoRA trained
->   with unrelated memory. With 4,096-wide keys it still retrieves at
->   N = 64 (18.9 vs 15.7 shuffled) but no longer beats closed-book.
-> - **Variant 2, step B** (writer = Qwen's own k/v projections + rank-8
->   LoRA, reader = q/o LoRA, trained on WikiText fill-in-the-blank only):
->   memory 48.5 / 25.0 / 10.5 / 4.0 at N = 1 / 4 / 16 / 64, above shuffled
->   and answer-swapped memories at every N; +31 / +8 over plain Qwen's
->   closed-book (17.1) at N = 1 / 4. Its reader lowers closed-book to 7.8.
-> - Passages pasted **in context** still beat every memory by 13–49 points
->   (LoRA: 67.3 at N = 1, 64.7 at N = 64), and the gap grows with N.
->
-> Untrained (frozen) Variant 1 stays negative in every follow-up check.
+**Revised 2026-11-26: the claim (C1) is refuted at corpus scale but
+partly supported on small banks once the reading side is trained.** The
+original conclusion ("refuted for both variants") was written on
+2026-11-18. The follow-up (section "Follow-up: small banks with training",
+pre-registered step by step) changes it for small memories.
+
+| setting | Variant 1 (Qwen's own heads) | Variant 2 (writer/reader trained on general text) |
+|---|---|---|
+| Corpus memory, 4,342 passages (original design) | refuted: no gain that depends on the content | refuted |
+| Small banks, frozen Qwen | content signal at N = 1–4 only, never useful | not applicable (V2 always trains) |
+| Small banks, trained reader | **works up to N = 16**: LoRA + per-token β, memory 54.1 / 41.4 / 26.5 at N = 1 / 4 / 16 vs 20.2 closed-book; retrieves (not useful) at 64 with wider keys | **retrieves at N = 1–64, useful at N = 1–4**: step B 48.5 / 25.0 at N = 1 / 4 vs plain Qwen 17.1; its reader lowers closed-book to 7.8 |
+| vs passages in context (same N) | ~80% of the context score at N = 1, ~40% at 16; at 64 no gain over closed-book | ~70% at N = 1; below plain Qwen's closed-book from 16 |
+
+What C1 asked, item by item (small banks, trained reader):
+- above closed-book and null memory: **yes**, up to N = 16 (V1) and N = 4 (V2);
+- collapses under shuffled memory: **yes**, at every N listed;
+- follows answer swaps: **V2 yes** (27.6% at N = 1); **V1 only partly** (the
+  swapped memory removes the right answer, 54 → 16 EM, but the swapped
+  answer is said in ≤ 4%);
+- approaching RAG / full context: **only at N = 1**; the gap grows with N.
+
+So: a delta-rule memory can carry facts that Qwen uses, but only for a few
+passages per memory, and only after training the read (and, for V2, the
+write). It is not a factual store at corpus scale. Limits of the follow-up:
+one seed, Qwen3-1.7B only, training banks ≤ 16 passages.
+
+### Original conclusion (2026-11-18, corpus scale; still valid there)
 
 **The claim is refuted for both variants on this setup.** A write-once
 delta-rule memory over a 4,342-passage TriviaQA corpus does not let frozen

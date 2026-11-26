@@ -234,3 +234,14 @@ Issue: https://github.com/Necr0x0Der/memWMLM/issues/6. Experiment: `experiments/
 - No memory condition ever reproduced a counterfactual (swapped) answer (follow ≤ 0.1 %; 25–32 % with the same passage in context). Gains of every memory condition are equal on dev_in (passage written) and dev_out (not written).
 
 **Decision (forward, open):** do not build on these delta-rule memories as a factual store. Reusable: the exact chunk-parallel delta rule (`memwmlm.memory.delta_rule`), the global-memory protocol with dev_in/dev_out/counterfactual groups, and the right-vs-wrong-memory probe as a cheap positive control for any trained memory interface. Untested: other training objectives (contrastive right-vs-wrong, retrieval pre-training), multi-layer reads, V2b trained at large N.
+
+## 2026-11-26 — Issue #6 follow-up: delta-rule memory works on small banks once the read is trained (revises the 2026-11-16 entry for small memories)
+
+Experiment: `experiments/issue-6-delta-rule-memory/` (`RESULTS.md` "Answer" and "Follow-up: small banks with training"; every step pre-registered as a dated `README.md` amendment, 2026-11-19 → 2026-11-25). Qwen3-1.7B, banks of N TriviaQA passages (1,024 eval questions), one seed. The 2026-11-16 corpus-scale conclusion (4,342 passages) is unchanged.
+
+- **Variant 1 + trained reader:** rank-8 LoRA on q/o, gates and a learned per-token write strength β, trained on TriviaQA-train banks (disjoint from eval); memory written by frozen Qwen. Memory EM 54.1 / 41.4 / 26.5 at N = 1 / 4 / 16 vs 20.2 closed-book with the same LoRA; beats shuffled and answer-swapped memories and a control LoRA trained with unrelated memory (CIs > 0). With 4,096-wide keys it still retrieves at N = 64 but is no better than closed-book there. Swapped memory removes the right answer but is rarely repeated (follow ≤ 4%).
+- **Variant 2, step B:** writer = Qwen's own k/v projections + rank-8 LoRA, reader = q/o LoRA, trained on WikiText cloze only. Retrieves at N = 1–64 (memory > shuffled and swapped); 48.5 / 25.0 at N = 1 / 4 vs plain Qwen closed-book 17.1; follows swapped answers (27.6% at N = 1). Its reader lowers closed-book recall to 7.8.
+- **Passages in context** beat every memory (LoRA: 67.3 at N = 1, 64.7 at N = 64); memory reaches ~80% of context at N = 1, ~40% at 16.
+- Frozen-read sanity checks: storage works (near-lossless with whitened + DPFP keys up to 64 passages); the untrained linear read cannot pick the answer out of a passage.
+
+**Decision (forward, open):** a trained delta-rule read is a working memory for a few passages, not a factual store. Building on it needs: scaling past 16–64 passages, a V2 reader that does not damage closed-book recall, more seeds and Qwen3-4B.

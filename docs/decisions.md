@@ -253,6 +253,7 @@ is a separate synthetic task, not a bAbI or reproduction rerun.
 The experiment is committed on branch `multicommit-memory` and pushed to
 `origin`; PR #17 is open against `main`. No separate GitHub issue was created.
 Reusable artifacts are under `datasets/multicommit-*`,
-`runs/multicommit-memory/`, and `RESEARCH-JOURNAL.md`; checkpoints under `runs/`
+`runs/multicommit-memory/`, and
+`experiments/multicommit-memory/RESEARCH-JOURNAL.md`; checkpoints under `runs/`
 remain local/ignored.
 

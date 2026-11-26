@@ -39,13 +39,16 @@ adapters are trained, plus the writer/reader sidecar.
 
 ## Quick commands
 
+Run from the repository root with the Python environment that has the required
+`torch`/`transformers`:
+
 ```text
-PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
+PYTHONPATH=src python \
   experiments/multicommit-memory/generate_simple.py \
   --output-dir datasets/multicommit-simple3 \
   --train-episodes 2000 --test-episodes 400
 
-PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
+PYTHONPATH=src python \
   experiments/multicommit-memory/train.py \
   --train-file datasets/multicommit-simple3/train.jsonl \
   --model-dir artifacts/models/Qwen3-1.7B \
@@ -54,7 +57,7 @@ PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
   --source-lora-rank 8 --lora-rank 8 --gate-bias-init -2.0 \
   --max-grad-norm 1.0 --save-every 500 --log-every 250
 
-PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
+PYTHONPATH=src python \
   experiments/multicommit-memory/evaluate.py \
   --checkpoint runs/multicommit-memory/simple3.pt \
   --test-file datasets/multicommit-simple3/test.jsonl \
@@ -90,4 +93,4 @@ The two-entity probe is undertrained at 1500 steps (15.25%) and reaches 53.75%
 memory accuracy at 3000 steps while full context reaches 81.45%; `current` and
 `previous` remain low. The single-entity positive result is therefore a narrow
 claim, not evidence of general multi-entity binding. See `RESULTS.md` and
-`../../RESEARCH-JOURNAL.md` for full metrics and caveats.
+`RESEARCH-JOURNAL.md` for full metrics and caveats.

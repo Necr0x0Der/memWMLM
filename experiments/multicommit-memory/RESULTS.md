@@ -3,7 +3,7 @@
 Date: 2026-11-25
 Branch: `multicommit-memory`; pushed to `origin`; PR #17 open against `main`
 Backbone: `Qwen/Qwen3-1.7B`, revision `70d244cc86ccca08cf5af4e1e306ecf908b1ad5e`
-Environment: `/home/inex/anaconda3/envs/imgen`, torch `2.9.0+cu128`
+Environment: Python with torch `2.9.0+cu128` and `transformers 4.57.3`
 GPU: RTX 4090
 
 ## Claim

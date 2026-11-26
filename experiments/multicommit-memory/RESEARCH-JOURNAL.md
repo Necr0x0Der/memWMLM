@@ -1,10 +1,10 @@
 # Research journal: multi-commit memory in a frozen small LLM
 
 Date: 2026-11-25 (MSK)
-Working directory: `/home/inex/work/memWMLM`
+Working directory: repository root; commands below are relative to it
 Branch: `multicommit-memory` (pushed to `origin`; PR #17 open against `main`)
 GPU: NVIDIA RTX 4090, 24,564 MiB, CUDA 12.1
-Environment: `/home/inex/anaconda3/envs/imgen` (`torch 2.9.0+cu128`, `transformers 4.57.3`)
+Environment: Python with `torch 2.9.0+cu128` and `transformers 4.57.3`
 Backbone: `artifacts/models/Qwen3-1.7B`, revision `70d244cc86ccca08cf5af4e1e306ecf908b1ad5e`
 
 ## 1. Why this experiment
@@ -182,13 +182,14 @@ Evaluation outputs:
 - `runs/multicommit-memory/two_long_test.json`
 - `runs/multicommit-memory/two_long_test_400.json`
 
-Representative commands:
+Representative commands (run from the repository root with the Python environment
+that has the required `torch`/`transformers`):
 ```text
-PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
+PYTHONPATH=src python \
   experiments/multicommit-memory/generate_simple.py \
   --output-dir datasets/multicommit-simple3 --train-episodes 2000 --test-episodes 400
 
-PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
+PYTHONPATH=src python \
   experiments/multicommit-memory/train.py \
   --train-file datasets/multicommit-simple3/train.jsonl \
   --model-dir artifacts/models/Qwen3-1.7B \
@@ -197,7 +198,7 @@ PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
   --source-lora-rank 8 --lora-rank 8 --gate-bias-init -2.0 \
   --max-grad-norm 1.0 --save-every 500 --log-every 250
 
-PYTHONPATH=src /home/inex/anaconda3/envs/imgen/bin/python \
+PYTHONPATH=src python \
   experiments/multicommit-memory/evaluate.py \
   --checkpoint runs/multicommit-memory/simple3.pt \
   --test-file datasets/multicommit-simple3/test.jsonl \

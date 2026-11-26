@@ -54,8 +54,9 @@ Test results (1200 examples):
 | `no_source` | 0.1733 | 0.1450 | 0.2000 | 0.1750 |
 | counterfactual memory | follow 0.9983 / resist 0.0000 | — | — | — |
 
-Interpretation: the memory model answers facts from commit 1 and commit 2, not
-only commit 3. The `original` question is the clean discriminator:
+Interpretation: the memory model answers the `original` fact from document 2,
+not only facts in the last commit (document 3). The `original` question is the
+clean discriminator:
 last-commit-only is 3.25%, full memory 99.5%. The `previous` question is also
 better under memory (100%) than full context (58.25%). `null_memory` and
 `no_source` remain near chance. Counterfactual source edits are followed, so

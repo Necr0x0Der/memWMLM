@@ -5,11 +5,37 @@ Requirements: the existing `.venv`, locally cached pinned Qwen3-4B weights, and
 the original dataset. Feature extraction uses a GPU; probe training runs on CPU
 and does not load Qwen.
 
+## Dataset location
+
+On this machine, the existing dataset is stored under:
+
+```text
+/media/sveta/hdisk6/singnet/memWMLM/experiments/issue-12-hidden-state-probes/artifacts/db/
+  manifest.json
+  train.jsonl
+  validation.jsonl
+  test.jsonl
+```
+
+The `artifacts` directory is the parent; `--dataset-dir` must point to its
+`db` subdirectory, which contains these four files. Reuse this dataset; do not
+regenerate it or use the historical `artifacts/prev/db_prev` copy.
+
+Set the working directory and dataset path once in the same Bash session:
+
+```bash
+cd /media/sveta/hdisk6/singnet/memWMLM
+question_states_dataset='/media/sveta/hdisk6/singnet/memWMLM/experiments/issue-12-hidden-state-probes/artifacts/db'
+```
+
+All commands below use this dataset variable. On another machine, adjust both
+paths to that machine's checkout and dataset location.
+
 ## 1. Audit and tests
 
 ```bash
 .venv/bin/python experiments/issue-12-question-conditioned-states/probe.py \
-  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --dataset-dir "$question_states_dataset" \
   --audit-only
 
 .venv/bin/python -m pytest -q \
@@ -35,7 +61,7 @@ without downloading the model again.
 mkdir -p experiments/issue-12-question-conditioned-states/artifacts/logs
 set -o pipefail
 .venv/bin/python -u experiments/issue-12-question-conditioned-states/extract.py \
-  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --dataset-dir "$question_states_dataset" \
   --output-dir experiments/issue-12-question-conditioned-states/artifacts/features-qwen3-4b \
   --instruction none --fact-order shuffled \
   --layers 8,16,28,36 --device cuda --dtype bfloat16 \
@@ -96,7 +122,7 @@ head -n 1 experiments/issue-12-question-conditioned-states/artifacts/features-qw
 ```bash
 set -o pipefail
 .venv/bin/python -u experiments/issue-12-question-conditioned-states/probe.py \
-  --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
+  --dataset-dir "$question_states_dataset" \
   --feature-dir experiments/issue-12-question-conditioned-states/artifacts/features-qwen3-4b \
   --output-dir experiments/issue-12-question-conditioned-states/artifacts/probes-qwen3-4b \
   --instruction none --fact-order shuffled \

@@ -7,10 +7,10 @@ and does not load Qwen.
 
 ## Dataset location
 
-On this machine, the existing dataset is stored under:
+Relative to the repository root, the existing dataset is stored under:
 
 ```text
-/media/sveta/hdisk6/singnet/memWMLM/experiments/issue-12-hidden-state-probes/artifacts/db/
+experiments/issue-12-hidden-state-probes/artifacts/db/
   manifest.json
   train.jsonl
   validation.jsonl
@@ -21,25 +21,24 @@ The `artifacts` directory is the parent; `--dataset-dir` must point to its
 `db` subdirectory, which contains these four files. Reuse this dataset; do not
 regenerate it or use the historical `artifacts/prev/db_prev` copy.
 
-Set the working directory and dataset path once in the same Bash session:
+From the repository root, set the dataset path once in the same Bash session:
 
 ```bash
-cd /media/sveta/hdisk6/singnet/memWMLM
-question_states_dataset='/media/sveta/hdisk6/singnet/memWMLM/experiments/issue-12-hidden-state-probes/artifacts/db'
+question_states_dataset='experiments/issue-12-hidden-state-probes/artifacts/db'
 ```
 
-All commands below use this dataset variable. On another machine, adjust both
-paths to that machine's checkout and dataset location.
+All commands below use paths relative to the repository root. The experiment
+folder is inside `experiments/issue-12-hidden-state-probes/`.
 
 ## 1. Audit and tests
 
 ```bash
-.venv/bin/python experiments/issue-12-question-conditioned-states/probe.py \
+.venv/bin/python experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/probe.py \
   --dataset-dir "$question_states_dataset" \
   --audit-only
 
 .venv/bin/python -m pytest -q \
-  experiments/issue-12-question-conditioned-states/test_question_states.py
+  experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/test_question_states.py
 
 nvidia-smi
 .venv/bin/python -c 'import torch; print("CUDA:", torch.cuda.is_available()); assert torch.cuda.is_available()'
@@ -58,15 +57,15 @@ chat formatting. Keep the previous files. Cached pinned weights can be reused
 without downloading the model again.
 
 ```bash
-mkdir -p experiments/issue-12-question-conditioned-states/artifacts/logs
+mkdir -p experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/logs
 set -o pipefail
-.venv/bin/python -u experiments/issue-12-question-conditioned-states/extract.py \
+.venv/bin/python -u experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/extract.py \
   --dataset-dir "$question_states_dataset" \
-  --output-dir experiments/issue-12-question-conditioned-states/artifacts/features-qwen3-4b \
+  --output-dir experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/features-qwen3-4b \
   --instruction none --fact-order shuffled \
   --layers 8,16,28,36 --device cuda --dtype bfloat16 \
   --batch-size 4 --max-length 512 \
-  2>&1 | tee experiments/issue-12-question-conditioned-states/artifacts/logs/extract.log
+  2>&1 | tee experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/logs/extract.log
 ```
 
 The output directory must not already exist. The script loads
@@ -113,23 +112,23 @@ Pooled features are saved in FP16; the full per-token trace is not saved.
 Inspect the exact rendered prompts:
 
 ```bash
-head -n 1 experiments/issue-12-question-conditioned-states/artifacts/features-qwen3-4b/no_question/train/prompts.jsonl
-head -n 1 experiments/issue-12-question-conditioned-states/artifacts/features-qwen3-4b/mary_left_of_john/train/prompts.jsonl
+head -n 1 experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/features-qwen3-4b/no_question/train/prompts.jsonl
+head -n 1 experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/features-qwen3-4b/mary_left_of_john/train/prompts.jsonl
 ```
 
 ## 3. Train probes and evaluate on test
 
 ```bash
 set -o pipefail
-.venv/bin/python -u experiments/issue-12-question-conditioned-states/probe.py \
+.venv/bin/python -u experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/probe.py \
   --dataset-dir "$question_states_dataset" \
-  --feature-dir experiments/issue-12-question-conditioned-states/artifacts/features-qwen3-4b \
-  --output-dir experiments/issue-12-question-conditioned-states/artifacts/probes-qwen3-4b \
+  --feature-dir experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/features-qwen3-4b \
+  --output-dir experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/probes-qwen3-4b \
   --instruction none --fact-order shuffled \
   --poolings last_token,mean_pool --l2-values 0.0001,0.001 \
   --max-iter 100 --device cpu --threads 1 \
   --seed 12012 --bootstrap-samples 2000 \
-  2>&1 | tee experiments/issue-12-question-conditioned-states/artifacts/logs/probe.log
+  2>&1 | tee experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/logs/probe.log
 ```
 
 Expect eight `locked_context` messages. After selecting all 56 classifiers,
@@ -151,7 +150,7 @@ Outputs:
 .venv/bin/python - <<'PY'
 import json
 from pathlib import Path
-p = Path('experiments/issue-12-question-conditioned-states/artifacts/probes-qwen3-4b/report.json')
+p = Path('experiments/issue-12-hidden-state-probes/issue-12-question-conditioned-states/artifacts/probes-qwen3-4b/report.json')
 r = json.loads(p.read_text())
 print('Baseline macro:', r['contexts']['no_question']['test']['mean_macro_accuracy'])
 print('Differences below are in percentage points.')

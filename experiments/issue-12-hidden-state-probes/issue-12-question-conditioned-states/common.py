@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-PARENT = Path(__file__).resolve().parents[1] / 'issue-12-hidden-state-probes'
+PARENT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PARENT))
 from extract_hidden_features import (git_revision, load_frozen_model, parse_layer_spec,
                                     pool_selected_hidden_states, sha256)

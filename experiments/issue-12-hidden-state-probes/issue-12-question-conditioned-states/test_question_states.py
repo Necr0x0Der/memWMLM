@@ -60,18 +60,18 @@ def test_extraction_stops_before_generation_and_padding_is_excluded(tmp_path):
     rows = [dict(id='a', text='Mary is here.', targets={'secret': 'SECRET'}),
             dict(id='b', text='John is in a very distant room.', targets={'secret': 'SECRET'})]
     metadata = extract.extract_context(model.model, Tokenizer(), rows, 'Where?', [1, 2],
-        tmp_path/'features', 2, 100, 'cpu')
+                                       tmp_path /'features', 2, 100, 'cpu')
     saved = torch.load(tmp_path/'features/shard-00000.pt', weights_only=True)
     assert saved['last_token'].shape == (2, 2, 32)
     assert 'SECRET' not in (tmp_path/'features/prompts.jsonl').read_text()
     extract.extract_context(model.model, Tokenizer(), rows[:1], 'Where?', [1, 2],
-        tmp_path/'single', 1, 100, 'cpu')
+                            tmp_path /'single', 1, 100, 'cpu')
     single = torch.load(tmp_path/'single/shard-00000.pt', weights_only=True)
     for pooling in common.POOLINGS:
         assert torch.allclose(saved[pooling][:1], single[pooling], atol=1e-3)
     assert metadata['examples'] == 2
     with pytest.raises(ValueError, match='truncation'):
-        extract.extract_context(model.model, Tokenizer(), rows, 'Where?', [1], tmp_path/'too-long', 2, 1, 'cpu')
+        extract.extract_context(model.model, Tokenizer(), rows, 'Where?', [1], tmp_path / 'too-long', 2, 1, 'cpu')
 
 
 def make_dataset(path):
@@ -89,7 +89,7 @@ def make_dataset(path):
         f = path/f'{split}.jsonl'
         f.write_text(''.join(json.dumps(r)+'\n' for r in rows))
         manifest['files'][f.name] = dict(sha256=common.sha256(f))
-    common.save_json(path/'manifest.json', manifest)
+    common.save_json(path / 'manifest.json', manifest)
 
 
 def test_full_pipeline_locks_all_probes_before_test(tmp_path, monkeypatch):
@@ -99,7 +99,7 @@ def test_full_pipeline_locks_all_probes_before_test(tmp_path, monkeypatch):
     model = tiny_model()
     monkeypatch.setattr(extract, 'load_frozen_model', lambda *a, **kw: (Tokenizer(), model))
     extract.run(argparse.Namespace(dataset_dir=db, output_dir=cache, instruction='none', fact_order='shuffled',
-                device='cpu', dtype='float32', layers='1,2', batch_size=4, max_length=100))
+                                   device='cpu', dtype='float32', layers='1,2', batch_size=4, max_length=100))
     args = argparse.Namespace(dataset_dir=db, feature_dir=cache, output_dir=output, instruction='none',
         fact_order='shuffled', audit_only=False, poolings=['last_token', 'mean_pool'],
         l2_values=[.001], max_iter=5, device='cpu', bootstrap_samples=10, seed=12)

@@ -206,6 +206,9 @@ artifacts/*
 datasets/repro/*.jsonl
 datasets/repro/.cache/
 
+# Synthetic multi-commit datasets — generated locally by generate_datasets.py
+datasets/multicommit-*/
+
 # Visual Studio Code
 #   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore that
 #   can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore

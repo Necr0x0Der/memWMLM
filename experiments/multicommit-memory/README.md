@@ -4,6 +4,18 @@ Date: 2026-11-25
 Branch: `multicommit-memory`; pushed to `origin`; PR #17 open against `main`
 PR: #17 (open), base `main`; no separate issue was created
 
+## Generate datasets
+
+Run from the repository root:
+
+```bash
+PYTHONPATH=src python experiments/multicommit-memory/generate_datasets.py
+```
+
+This creates `datasets/multicommit-memory`, `datasets/multicommit-simple3`,
+and `datasets/multicommit-two` with the fixed seed and episode counts. The
+datasets are generated locally and are not committed to git.
+
 ## Claim
 
 A frozen Qwen3-1.7B backbone with a position-aligned, writable memory sidecar
@@ -29,6 +41,8 @@ adapters are trained, plus the writer/reader sidecar.
 
 ## Files
 
+- `generate_datasets.py` — argument-free wrapper that generates the three
+  synthetic datasets with fixed seed and counts.
 - `generate.py` — original complex multi-person dataset generator.
 - `generate_simple.py` — single-entity, three-question diagnostic generator.
 - `generate_two.py` — two-entity boundary generator.

@@ -149,6 +149,6 @@ entity-specific query keys).
 - `runs/multicommit-memory/two_long_test.json`
 - `runs/multicommit-memory/eval_1000.json`
 - `runs/multicommit-memory/eval_src_gate2_300.json`
-- `datasets/multicommit-simple3/{train,test}.jsonl`
-- `datasets/multicommit-two/{train,test}.jsonl`
-- `datasets/multicommit-memory/{train,test}.jsonl`
+Datasets are generated locally by
+`PYTHONPATH=src python experiments/multicommit-memory/generate_datasets.py`
+and are not committed to git.

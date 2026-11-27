@@ -90,7 +90,7 @@ VRAM для backward через замороженный backbone. Заморо�
 ```bash
 .venv/bin/python experiments/issue-12-hidden-state-probes/extract_hidden_features.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --output-dir experiments/issue-12-source-free-memory/artifacts/features-qwen3-4b \
+  --output-dir experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/features-qwen3-4b \
   --model Qwen/Qwen3-4B \
   --revision 1cfa9a7208912126459214e8b04321603b3df60c \
   --layers 28 --device cuda --model-dtype bfloat16 \
@@ -100,10 +100,10 @@ VRAM для backward через замороженный backbone. Заморо�
 ### 2. Обучение, выбор на validation, тестовые ответы
 
 ```bash
-.venv/bin/python experiments/issue-12-source-free-memory/run.py \
+.venv/bin/python experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/run.py \
   --dataset-dir experiments/issue-12-hidden-state-probes/artifacts/db \
-  --feature-dir experiments/issue-12-source-free-memory/artifacts/features-qwen3-4b \
-  --output-dir experiments/issue-12-source-free-memory/artifacts/pilot-none-shuffled \
+  --feature-dir experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/features-qwen3-4b \
+  --output-dir experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/pilot-none-shuffled \
   --instruction none --fact-order shuffled \
   --poolings mean_pool,last_token,sentence_end_mean --layers 28 \
   --slots 4 --epochs 5 --batch-size 2 --lr 1e-4 --seed 12012 \
@@ -133,7 +133,7 @@ manifest/shards признаков, соответствие модели/revisi
 ### Проверки реализации
 
 ```bash
-.venv/bin/python -m pytest -q experiments/issue-12-source-free-memory/test_source_free.py
+.venv/bin/python -m pytest -q experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/test_source_free.py
 ```
 
 Тесты используют маленькую случайную Qwen: градиент к адаптеру, неизменность

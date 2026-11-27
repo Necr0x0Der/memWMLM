@@ -24,7 +24,7 @@
 ```bash
 source_free_features='experiments/issue-12-hidden-state-probes/probe_training/artifacts/features-qwen3-4b'
 source_free_dataset='experiments/issue-12-hidden-state-probes/artifacts/db'
-source_free_output='experiments/issue-12-source-free-memory/artifacts/pilot-none-shuffled'
+source_free_output='experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/pilot-none-shuffled'
 ```
 
 Нужны `manifest.json` и все перечисленные в нём shards для `train`,
@@ -66,7 +66,7 @@ PY
 ```bash
 nvidia-smi
 .venv/bin/python -c 'import torch, transformers; print(torch.__version__, transformers.__version__); print("CUDA:", torch.cuda.is_available()); assert torch.cuda.is_available()'
-.venv/bin/python -m pytest -q experiments/issue-12-source-free-memory/test_source_free.py
+.venv/bin/python -m pytest -q experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/test_source_free.py
 ```
 
 Для ответного прохода всё равно нужны **веса Qwen3-4B**: cache признаков
@@ -95,7 +95,7 @@ PY
 перезаписывать; output-dir extractor должен быть новым.
 
 ```bash
-source_free_features='experiments/issue-12-source-free-memory/artifacts/features-qwen3-4b'
+source_free_features='experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/features-qwen3-4b'
 .venv/bin/python experiments/issue-12-hidden-state-probes/extract_hidden_features.py \
   --dataset-dir "$source_free_dataset" \
   --output-dir "$source_free_features" \
@@ -117,9 +117,9 @@ Extractor сохраняет все три pooling. `--save-token-states` не �
 Test-признаки не участвуют в выборе адаптера.
 
 ```bash
-mkdir -p experiments/issue-12-source-free-memory/artifacts/logs
+mkdir -p experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/logs
 set -o pipefail
-.venv/bin/python -u experiments/issue-12-source-free-memory/run.py \
+.venv/bin/python -u experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/run.py \
   --dataset-dir "$source_free_dataset" \
   --feature-dir "$source_free_features" \
   --output-dir "$source_free_output" \
@@ -127,7 +127,7 @@ set -o pipefail
   --poolings mean_pool,last_token,sentence_end_mean --layers 28 \
   --slots 4 --epochs 5 --batch-size 2 --lr 1e-4 --seed 12012 \
   --device cuda --dtype bfloat16 --max-new-tokens 64 \
-  2>&1 | tee experiments/issue-12-source-free-memory/artifacts/logs/pilot-none-shuffled.log
+  2>&1 | tee experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/logs/pilot-none-shuffled.log
 ```
 
 `source_free_output` должен отсутствовать до запуска; родительская папка может

@@ -14,7 +14,7 @@ import torch
 from torch import nn
 import transformers
 
-PARENT = Path(__file__).resolve().parents[1] / 'issue-12-hidden-state-probes'
+PARENT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PARENT))
 from extract_hidden_features import load_frozen_model, validate_dataset_manifest, git_revision
 from train_linear_probes import load_feature_split, read_jsonl, sha256, encode_targets, metrics

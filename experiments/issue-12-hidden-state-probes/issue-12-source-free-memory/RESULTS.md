@@ -1,37 +1,39 @@
-# Статус 2026-11-26
+# Status as of 2026-11-26
 
-**Результатов QA с обученным адаптером Qwen3-4B пока нет.**
+**No QA results with a trained Qwen3-4B adapter were available at this stage.**
 
-Реализован отдельный source-free soft-prefix эксперимент, протокол и команды
-в [README.md](README.md). Подмена памяти отложена по запросу пользователя.
+A separate source-free soft-prefix experiment was implemented; protocol and
+commands are in [README.md](README.md). Memory swapping was deferred at the
+user's request.
 
-Попытка запуска на текущей машине остановилась до обучения и теста:
+The attempt on the local machine stopped before training or test evaluation:
 
 ```
 RuntimeError: CUDA is unavailable; no training or test evaluation was run.
 ```
 
-Проверка окружения:
+Environment checks at the time:
 
-- `torch.cuda.is_available()` возвращает `False`;
-- `/dev/nvidia*` отсутствуют, `nvidia-smi` не связывается с драйвером;
-- в стандартном HF-cache есть Qwen3-1.7B, но нет Qwen3-4B;
-- feature-cache Qwen3-4B, упомянутый в старых отчётах, здесь отсутствует;
+- `torch.cuda.is_available()` returned `False`;
+- `/dev/nvidia*` was absent, and `nvidia-smi` could not connect to the driver;
+- the standard HF cache contained Qwen3-1.7B but not Qwen3-4B;
+- the Qwen3-4B feature cache referenced by earlier reports was unavailable locally;
 - PyTorch 2.15.0+cu132, Transformers 5.22.1.
 
-1.7B не использована как подмена 4B: это изменило бы исследуемую модель.
-CPU-прогон случайной маленькой Qwen проверяет только корректность реализации,
-не пригодность представлений настоящей модели.
+1.7B was not substituted for 4B, as that would change the model under study.
+A CPU run with a small randomly initialized Qwen checks implementation
+correctness, not the usability of the real model's representations.
 
-Четыре новых теста прошли, включая полный двухэпоховый цикл обучения,
-выбор по validation, генерацию и запись отчёта на маленькой случайной Qwen.
-Проверены неизменность backbone, градиент адаптера, отсутствие source/target
-в вопросе, маскирование и корректность greedy generation с `inputs_embeds`.
+Four new tests passed, including a complete two-epoch training cycle, validation
+selection, generation, and report writing with a small random Qwen. Checks
+covered frozen backbone weights, adapter gradients, absence of source/target
+in the question prompt, masking, and correct greedy generation with `inputs_embeds`.
 
-Для продолжения нужны доступная GPU, pinned Qwen3-4B и полный feature-cache
-(или его повторное извлечение командой из README). После обучения сначала
-смотреть `test-memory.jsonl` и `test-question_only.jsonl`, затем `report.json`;
-не выбирать новый pooling/слой по этим тестовым ответам.
+Continuing requires an available GPU, pinned Qwen3-4B, and a complete feature
+cache (or fresh extraction using the README command). After training, inspect
+`test-memory.jsonl` and `test-question_only.jsonl` first, then `report.json`.
+Do not select a new pooling or layer based on those test answers.
 
-GitHub issue #12 остаётся контекстом; новый протокол пока записан локально.
-Внешние комментарии, commits и push не выполнялись.
+At the time of this status entry, issue #12 provided context and the new protocol
+had only been recorded locally; no external comments, commits, or pushes had
+been made for this experiment.

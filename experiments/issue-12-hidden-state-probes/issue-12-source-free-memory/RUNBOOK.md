@@ -1,25 +1,25 @@
-# Запуск source-free memory на Qwen3-4B
+# Running source-free memory on Qwen3-4B
 
-Все команды выполнять из корня `memWMLM`, в Bash. Протокол и ограничения:
-[README.md](README.md). Статус предыдущей попытки: [RESULTS.md](RESULTS.md).
-На этом этапе обучаем адаптер и смотрим тестовые ответы; подмены памяти нет.
+Run all commands from the `memWMLM` repository root in Bash. Protocol and limits:
+[README.md](README.md). Status of the previous attempt: [RESULTS.md](RESULTS.md).
+This stage trains the adapter and inspects test answers; it does not swap memory.
 
-## 1. Использовать уже извлечённые признаки
+## 1. Reuse existing features
 
-**Повторное извлечение не нужно**, если сохранились признаки предыдущего
-эксперимента Qwen3-4B. Обучение soft prefix использует те же situation-only
-векторы, что probes; менять формат признаков не требуется.
+**No extraction rerun is needed** if the previous Qwen3-4B experiment's features
+were preserved. Soft-prefix training uses the same situation-only vectors as
+the probes; no feature-format change is required.
 
-В прежних runbook указаны два подходящих источника:
+Previous runbooks list two compatible sources:
 
 - `experiments/issue-12-hidden-state-probes/probe_training/artifacts/features-qwen3-4b`
 - `experiments/issue-12-hidden-state-probes/probe_training/artifacts/token-features-qwen3-4b`
 
-Второй cache тоже подходит: `--save-token-states` добавляет отдельные токены,
-но сохраняет и три pooled-представления. Индивидуальные токены здесь не нужны.
-Наличие больших token-state tensors может замедлить чтение shards.
+The second cache also works: `--save-token-states` adds individual token states
+but retains all three pooled representations. Individual tokens are not needed
+here; large token-state tensors may slow shard loading.
 
-Укажите **реальный путь на машине, где лежат признаки**:
+Set the **actual feature path on the machine holding the cache**:
 
 ```bash
 source_free_features='experiments/issue-12-hidden-state-probes/probe_training/artifacts/features-qwen3-4b'
@@ -27,11 +27,11 @@ source_free_dataset='experiments/issue-12-hidden-state-probes/artifacts/db'
 source_free_output='experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/pilot-none-shuffled'
 ```
 
-Нужны `manifest.json` и все перечисленные в нём shards для `train`,
-`validation`, `test`. Один manifest, report или checkpoint обученного probe
-не заменяет feature-cache. Признаки Qwen3-1.7B для этого запуска не подходят.
+The manifest and every shard it lists for `train`, `validation`, and `test` are
+required. A manifest alone, a report, or a trained probe checkpoint cannot
+replace the feature cache. Qwen3-1.7B features are incompatible with this run.
 
-Проверьте manifest:
+Check the manifest:
 
 ```bash
 .venv/bin/python - "$source_free_features" <<'PY'
@@ -57,11 +57,11 @@ print('pooling:', m['features']['pooling'])
 PY
 ```
 
-Это быстрая проверка наличия файлов. Хеши shards, соответствие dataset и ID
-проверит `run.py` при загрузке. Для пилота нужны `mean_pool`, `last_token`,
-`sentence_end_mean`; дополнительные слои в cache допустимы.
+This is a quick file-presence check. During loading, `run.py` checks shard hashes,
+dataset compatibility, and IDs. The pilot requires `mean_pool`, `last_token`,
+and `sentence_end_mean`; additional cached layers are allowed.
 
-## 2. Проверить GPU, модель и реализацию
+## 2. Check GPU, model, and implementation
 
 ```bash
 nvidia-smi
@@ -69,11 +69,11 @@ nvidia-smi
 .venv/bin/python -m pytest -q experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/test_source_free.py
 ```
 
-Для ответного прохода всё равно нужны **веса Qwen3-4B**: cache признаков
-заменяет только повторное чтение ситуаций, а не саму отвечающую модель.
-Скрипт загружает pinned revision локально через Hugging Face cache и не скачивает
-веса автоматически. Используйте тот же HF-cache, что в предыдущих запусках.
-Если нужна явная загрузка на новую машину с интернетом:
+The answering pass still requires **Qwen3-4B weights**: cached features replace
+only the repeated encoding of situations, not the answering model itself.
+The script loads the pinned revision from the local Hugging Face cache and does
+not download weights automatically. Reuse the HF cache from previous runs.
+For an explicit download on a new machine with internet access:
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -86,13 +86,14 @@ snapshot_download(
 PY
 ```
 
-Нужна VRAM и для градиентов по входу: хотя веса Qwen заморожены, backward
-проходит через неё. Минимальный объём VRAM для этого запуска ещё не измерен.
+VRAM is also needed for gradients with respect to the input: Qwen's weights
+are frozen, but backward passes through it. Minimum VRAM for this run has not
+yet been measured.
 
-## 3. Только если feature-cache утрачен: извлечь заново
+## 3. Only if the feature cache is missing: extract again
 
-При наличии совместимого cache **пропустите этот шаг**. Старые признаки не
-перезаписывать; output-dir extractor должен быть новым.
+**Skip this step** if a compatible cache is available. Do not overwrite old
+features; the extractor output directory must be new.
 
 ```bash
 source_free_features='experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/features-qwen3-4b'
@@ -105,16 +106,16 @@ source_free_features='experiments/issue-12-hidden-state-probes/issue-12-source-f
   --output-dtype float16 --batch-size 4
 ```
 
-Extractor сохраняет все три pooling. `--save-token-states` не нужен.
-Не использовать `--max-examples-per-split`: это даст неполный cache для smoke test,
-который основной эксперимент намеренно отклоняет.
+The extractor saves all three poolings; `--save-token-states` is unnecessary.
+Do not use `--max-examples-per-split`: it creates an incomplete smoke-test cache
+that the main experiment deliberately rejects.
 
-## 4. Обучить и получить ответы на test
+## 4. Train and generate test answers
 
-Зафиксированный пилот: `none/shuffled`, слой 28, три pooling, четыре memory-слота,
-пять эпох и seed 12012. По validation NLL выбираются pooling и эпоха;
-после выбора запускается генерация на test, сначала с памятью, потом без неё.
-Test-признаки не участвуют в выборе адаптера.
+Fixed pilot: `none/shuffled`, layer 28, three poolings, four memory slots,
+five epochs, seed 12012. Select pooling and epoch by validation NLL. After
+selection, generate test answers with memory, then without it. Test features
+do not participate in adapter selection.
 
 ```bash
 mkdir -p experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/logs
@@ -130,13 +131,13 @@ set -o pipefail
   2>&1 | tee experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/artifacts/logs/pilot-none-shuffled.log
 ```
 
-`source_free_output` должен отсутствовать до запуска; родительская папка может
-существовать. Для повторной попытки выбрать новое имя output-dir и log.
-Скрипт сообщает train/validation NLL после каждой эпохи и прогресс каждых
-50 тестовых ответов. Ожидаются 15 записей эпох (3 pooling × 5), 672 ответа
-с памятью и 672 без памяти. Итоговый `report.json` появляется после обоих режимов.
+`source_free_output` must not exist before the run; its parent may exist.
+Choose new output/log names for another attempt. The script reports
+train/validation NLL after each epoch and progress every 50 test answers.
+Expect 15 epoch records (3 poolings × 5), 672 answers with memory, and 672
+without memory. The final `report.json` appears after both modes finish.
 
-## 5. Посмотреть метрики и сами ответы
+## 5. Inspect metrics and actual answers
 
 ```bash
 .venv/bin/python - "$source_free_output" <<'PY'
@@ -162,31 +163,32 @@ for mode in ('memory', 'question_only'):
 PY
 ```
 
-`macro` — средняя balanced accuracy семи вопросов; `joint` — все семь ответов
-правильны в одной ситуации. Invalid считается ошибкой. Оцениваются 96 ситуаций,
-но независимых abstract-layout групп всего четыре.
+`macro` is mean balanced accuracy across seven questions; `joint` requires
+all seven answers to be correct for one situation. Invalid answers count as
+errors. Evaluation covers 96 situations but only four independent abstract layouts.
 
-Сохранить вместе: `protocol.json`, `history.json`, `selected.pt`, оба JSONL
-с ответами, `report.json`, лог и manifest/features. Сначала проверить invalids и
-сырые ответы. Разница с question-only — предварительный сигнал пригодности
-интерфейса; без подмен и oracle причинный вывод не делаем. Старое full-context QA
-имело другой generation budget, поэтому сравнение с ним не является matched.
+Preserve together: `protocol.json`, `history.json`, `selected.pt`, both answer
+JSONL files, `report.json`, the log, and feature manifest/shards. Inspect invalids
+and raw answers first. The difference from question-only is a preliminary signal
+of interface usability; without swaps and an oracle, do not make a causal claim.
+Earlier full-context QA used a different generation budget, so that comparison
+is not matched.
 
-## 6. Если запуск остановился
+## 6. If the run stops
 
-- **CUDA unavailable:** запускать на GPU-машине; CPU-тесты не заменяют обучение 4B.
-- **Модель не найдена локально:** проверить HF-cache и pinned revision; выполнить
-  явную загрузку из шага 2 при необходимости.
-- **Feature/dataset mismatch или missing shard:** перенести полный cache и его
-  исходный dataset. Не редактировать хеши manifest для обхода проверки.
-- **Output directory exists:** оставить предыдущие артефакты и выбрать новое имя.
-- **CUDA out of memory:** уменьшить batch size до 1 и начать отдельный запуск.
-  Это изменение конфигурации; записать его. Число optimizer steps изменится.
-- **Нет report.json:** запуск не завершился. История, лучший checkpoint и частичные
-  JSONL могут сохраниться; не считать их полным test-результатом.
-- **Много invalid/обрезанных ответов:** сохранить текущую оценку; увеличение
-  generation budget оформить отдельным запуском, а не незаметной заменой результата.
+- **CUDA unavailable:** run on a GPU machine; CPU tests do not replace 4B training.
+- **Model not found locally:** check HF cache and pinned revision; perform the
+  explicit download in step 2 if needed.
+- **Feature/dataset mismatch or missing shard:** transfer the complete cache and
+  its original dataset. Do not edit manifest hashes to bypass validation.
+- **Output directory exists:** retain previous artifacts and choose a new name.
+- **CUDA out of memory:** reduce batch size to 1 and start a separate run.
+  Record this configuration change; it changes the number of optimizer steps.
+- **No report.json:** the run is incomplete. History, the best checkpoint, and
+  partial JSONL files may remain; they are not a complete test result.
+- **Many invalid/truncated answers:** preserve the current evaluation. Treat
+  a larger generation budget as a separate run, not a silent result replacement.
 
-Автоматического resume и отдельного CLI для eval-only пока нет. Подмена памяти,
-oracle, новые инструкции и расширение сетки слоёв — следующие эксперименты,
-не часть этого пилота.
+Automatic resume and a separate eval-only CLI are not implemented. Memory swaps,
+an oracle, new instructions, and a larger layer grid are subsequent experiments,
+not part of this pilot.

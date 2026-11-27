@@ -1,91 +1,95 @@
-# Source-free soft-prefix memory: первый тест без исходного описания
+# Source-free soft-prefix memory: first test without the source description
 
-Продолжение [issue #12](https://github.com/Necr0x0Der/memWMLM/issues/12)
-и [PR #14](https://github.com/Necr0x0Der/memWMLM/pull/14).
-Отдельный протокол: прежние эксперименты и артефакты не меняются.
+Follow-up to [issue #12](https://github.com/Necr0x0Der/memWMLM/issues/12)
+and [PR #14](https://github.com/Necr0x0Der/memWMLM/pull/14).
+This is a separate protocol; previous experiments and artifacts remain unchanged.
 
-Пошаговый запуск с уже извлечёнными признаками: [RUNBOOK.md](RUNBOOK.md).
+Step-by-step instructions using existing features: [RUNBOOK.md](RUNBOOK.md).
 
-## Что проверяем
+## Research question
 
-Можно ли обучить affine-адаптер, который превращает один сохранённый вектор
-ситуации в четыре виртуальных входных токена, позволяющих **замороженной
-Qwen3-4B отвечать на новые тестовые ситуации без исходного описания**?
+Can an affine adapter turn one saved situation vector into four virtual input
+tokens that let **frozen Qwen3-4B answer questions about held-out test situations
+without their source descriptions**?
 
 ```
-ситуация без вопроса → frozen Qwen → h слоя L и выбранного pooling
-                                           ↓
-                                  train-standardization
-                                           ↓
-                               обучаемый Linear(H, 4*D)
-                                           ↓
-                           [4 soft tokens] [chat-вопрос]
-                                           ↓
-                                  frozen Qwen → ответ
+situation without question → frozen Qwen → h at layer L with selected pooling
+                                          ↓
+                                 train-standardization
+                                          ↓
+                              trainable Linear(H, 4*D)
+                                          ↓
+                          [4 soft tokens] [chat question]
+                                          ↓
+                                 frozen Qwen → answer
 ```
 
-Исходный текст и его KV-cache никогда не передаются в ответный проход.
-Виртуальные токены передаются через `inputs_embeds`, перед полным chat-prompt.
-Вопрос адаптеру недоступен: все семь вопросов об одном мире используют одну
-память. Обучение — teacher forcing на `FINAL: <answer>` и EOS, loss только
-на ответе. Градиент проходит через Qwen к адаптеру; веса Qwen заморожены.
-Признаки и статистики их нормализации не получают градиент; статистики считают
-только на train выбранного условия. Инициализация масштаба адаптера использует
-стандартное отклонение первых 4096 входных эмбеддингов Qwen.
+Neither the source text nor its KV cache is passed to the answering pass.
+Virtual tokens are supplied through `inputs_embeds`, before the complete chat
+prompt. The adapter does not receive the question: all seven questions about
+one world use the same memory. Training uses teacher forcing on
+`FINAL: <answer>` and EOS, with loss on answer tokens only. Gradients flow
+through Qwen to the adapter; Qwen's weights remain frozen. Features and their
+normalization statistics receive no gradients; statistics use only training
+rows from the selected condition. Adapter initialization uses the standard
+deviation of Qwen's first 4,096 input embeddings.
 
-Это **проверка пригодности представления через обученный интерфейс**, а не
-доказательство, что исходная Qwen использовала готовое состояние мира.
-Адаптер affine, но не мал по числу весов: при H=D=2560 и K=4 это 26 224 640
-параметров. Он может выучить часть задачи. Четыре слота не добавляют информации
-к исходному h, но обучают способ её подачи.
+This tests **representation usability through a learned interface**, not whether
+the original Qwen used a prepared world state. The adapter is affine but has
+many parameters: with H=D=2560 and K=4, it has 26,224,640 parameters. It may learn
+part of the task. Four slots add no information to the original h; they learn
+how to present that information.
 
-## Зафиксированный пилот до просмотра новых test-ответов
+## Pilot fixed before inspecting new test answers
 
-- Модель: Qwen/Qwen3-4B, revision `1cfa9a7208912126459214e8b04321603b3df60c`.
-- Старый dataset `issue-12-hidden-state-probes/artifacts/db`, неизменённые splits.
-- Одно условие `none/shuffled`: 408 train, 72 validation, 96 test ситуаций;
-  по семь вопросов на ситуацию (2856/504/672 ответов).
-- Слой **28** фиксирован для пилота; pooling-кандидаты: `mean_pool`,
-  `last_token`, `sentence_end_mean`. Последний — среднее концов шести фактов.
-- Один отдельный адаптер на каждый pooling; K=4, 5 эпох, AdamW lr=1e-4,
+- Model: Qwen/Qwen3-4B, revision `1cfa9a7208912126459214e8b04321603b3df60c`.
+- Existing dataset at `experiments/issue-12-hidden-state-probes/artifacts/db`,
+  with unchanged splits.
+- One condition, `none/shuffled`: 408 train, 72 validation, 96 test situations;
+  seven questions per situation (2,856/504/672 answers).
+- Layer **28** is fixed for the pilot. Pooling candidates: `mean_pool`,
+  `last_token`, `sentence_end_mean`. The last averages the ends of six facts.
+- One separate adapter per pooling; K=4, 5 epochs, AdamW lr=1e-4,
   weight decay=0, batch size=2, gradient clipping=1, seed=12012.
-- Выбираем pooling и эпоху по **минимальной validation answer-token NLL**.
-  Равенство разрешается в пользу первого кандидата/ранней эпохи.
-  Не выбираем по test; не переобучаем на train+validation.
-- После выбора — greedy generation на всех 96 тестовых мирах и 7 вопросах,
-  thinking disabled, max_new_tokens=64, без constrained decoding.
-- Основная метрика: mean per-question balanced accuracy; дополнительные:
-  все семь targets правильны одновременно, per-question accuracy, invalids,
-  полные сырые ответы. Это не восстановление полного мира.
-- Сравнение: та же замороженная модель, тот же вопрос и prompt, но **без памяти**.
-  Этот контроль отличается длиной контекста и не является matched null-prefix.
-- Критерий первичного положительного сигнала: качество memory выше question-only
-  и положительная разница по совместной точности семи targets. Это описательный
-  результат пилота, не статистическое доказательство причинного использования.
-- Подмены, null-prefix и oracle **отложены по запросу пользователя**. Отсутствие
-  этих контролей запрещает вывод «модель причинно использует состояние».
-- Существующий test уже изучался в других экспериментах. Независимых test-групп
-  всего четыре. Разброс по seed и доверительные интервалы здесь не оцениваются.
+- Select pooling and epoch by **minimum validation answer-token NLL**.
+  Ties favor the first candidate/earlier epoch. Do not select on test or
+  retrain on train+validation.
+- After selection, run greedy generation on all 96 test worlds and seven
+  questions, with thinking disabled, max_new_tokens=64, and no constrained decoding.
+- Primary metric: mean per-question balanced accuracy. Additional metrics:
+  all seven targets correct jointly, per-question accuracy, invalid answers,
+  and complete raw responses. This is not full world-state reconstruction.
+- Control: the same frozen model, question, and prompt, but **without memory**.
+  This control differs in context length and is not a matched null prefix.
+- Initial positive signal: memory outperforms question-only and has a positive
+  joint-target accuracy difference. This is a descriptive pilot result, not
+  statistical proof of causal state use.
+- Memory swaps, null prefixes, and oracle controls are **deferred at the user's
+  request**. Without them, do not claim that the model causally uses the state.
+- The existing test set has already been inspected in other experiments.
+  There are only four independent test groups. Seed variation and confidence
+  intervals are not estimated here.
 
-Скрипт поддерживает несколько слоёв, например `--layers 8,16,28,36`, но это
-отдельное расширение сетки: зафиксировать его **до просмотра test**. При смене
-условий или бюджета использовать новый output-dir, не перезаписывать пилот.
-Сравнение с прежними 95% full-context QA не является matched: там был бюджет
-2048 токенов. Здесь целевое обучение на короткие ответы и лимит 64. При большом
-числе обрезанных/невалидных ответов результат считается ограниченным этим
-протоколом; не менять парсер или бюджет молча после test.
+The script supports multiple layers, such as `--layers 8,16,28,36`, but that is
+a separate grid expansion and must be declared **before inspecting test results**.
+Use a new output directory when changing conditions or budgets; do not overwrite
+the pilot. Comparison with the earlier 95% full-context QA is not matched: that
+run had a 2,048-token budget. Here, training targets short answers with a 64-token
+limit. Many truncated/invalid answers limit the result to this protocol; do not
+silently change the parser or generation budget after test evaluation.
 
-## Запуск
+## Running
 
-Из корня репозитория. Нужны CUDA, локальные pinned-веса Qwen3-4B и достаточно
-VRAM для backward через замороженный backbone. Заморозка не отменяет хранения
-активаций. Автоматического скачивания весов скрипт не делает.
+Run from the repository root. Requires CUDA, locally cached pinned Qwen3-4B
+weights, and enough VRAM for backward through the frozen backbone. Freezing
+weights does not eliminate activation storage. The script does not download
+weights automatically.
 
-### 1. Признаки
+### 1. Features
 
-Если сохранён совместимый полный feature-cache Qwen3-4B с тремя pooling и
-слоем 28, использовать его. Старые отчёты/чекпойнты probes признаков не заменяют.
-Иначе запустить существующий extractor; он сохраняет все три pooling:
+Reuse a compatible complete Qwen3-4B feature cache with all three poolings and
+layer 28 if available. Old probe reports/checkpoints do not replace features.
+Otherwise, run the existing extractor, which saves all three poolings:
 
 ```bash
 .venv/bin/python experiments/issue-12-hidden-state-probes/extract_hidden_features.py \
@@ -97,7 +101,7 @@ VRAM для backward через замороженный backbone. Заморо�
   --output-dtype float16 --batch-size 4
 ```
 
-### 2. Обучение, выбор на validation, тестовые ответы
+### 2. Training, validation selection, and test answers
 
 ```bash
 .venv/bin/python experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/run.py \
@@ -110,39 +114,41 @@ VRAM для backward через замороженный backbone. Заморо�
   --device cuda --dtype bfloat16 --max-new-tokens 64
 ```
 
-Каждый новый запуск требует несуществующий output-dir. Проверяются хеши dataset,
-manifest/shards признаков, соответствие модели/revision, совпадение ID и
-непересечение abstract-layout групп. Test-признаки загружаются после окончательного
-выбора; до этого test-метаданные читаются только для аудита splits.
+Every new run requires an output directory that does not already exist. The
+script checks dataset and feature manifest/shard hashes, model/revision
+compatibility, matching IDs, and disjoint abstract-layout groups. Test features
+are loaded only after final selection; before that, test metadata is read only
+for split auditing.
 
-Выходы:
+Outputs:
 
-- `protocol.json`: параметры и provenance до обучения/оценивания;
-- `history.json`: train/validation NLL всех кандидатов и эпох;
-- `selected.pt`: лучшие веса, train-нормализация, конфигурация и число параметров;
-- `test-memory.jsonl`: реальные ответы по памяти;
-- `test-question_only.jsonl`: реальные ответы без памяти;
-- `report.json`: выбранный кандидат, метрики обоих условий, invalids, хеши.
+- `protocol.json`: configuration and provenance before training/evaluation;
+- `history.json`: train/validation NLL for every candidate and epoch;
+- `selected.pt`: best weights, train normalization, configuration, parameter count;
+- `test-memory.jsonl`: generated answers with memory;
+- `test-question_only.jsonl`: generated answers without memory;
+- `report.json`: selected candidate, metrics for both conditions, invalids, hashes.
 
-Вопросы на тесте не содержат ground truth. Правильный ответ сохраняется лишь
-для scoring. Старый парсер `FINAL:` используется без изменений; invalid считается
-ошибкой. Генерация по одному вопросу упрощает проверку отсутствия cache-переноса,
-но не оптимизирована по скорости. Автоматический resume пока не реализован;
-при прерывании остаются история, лучший checkpoint и уже записанные ответы.
+Test prompts contain no ground-truth answers. The correct answer is stored only
+for scoring. The existing `FINAL:` parser is unchanged; invalid answers count
+as errors. Generating one answer at a time simplifies checking that no cache
+is transferred, but is not optimized for speed. Automatic resume is not
+implemented; interruptions may leave history, the best checkpoint, and answers
+already written.
 
-### Проверки реализации
+### Implementation checks
 
 ```bash
 .venv/bin/python -m pytest -q experiments/issue-12-hidden-state-probes/issue-12-source-free-memory/test_source_free.py
 ```
 
-Тесты используют маленькую случайную Qwen: градиент к адаптеру, неизменность
-backbone, маски loss/padding, отсутствие текста/ответа в question-prompt,
-совпадение generation с ручным greedy и полный train→select→test pipeline.
-Эти тесты не являются измерением качества Qwen3-4B.
+Tests use a small randomly initialized Qwen to check adapter gradients, frozen
+backbone weights, loss/padding masks, absence of source text/targets in question
+prompts, agreement with manual greedy generation, and the full
+train→select→test pipeline. These are not Qwen3-4B performance measurements.
 
-## Текущий статус и handoff
+## Status and handoff
 
-См. [RESULTS.md](RESULTS.md). Локальная запись протокола подготовлена;
-новый GitHub issue/комментарий и публикация не выполнялись. Следующий запуск
-должен сохранить этот протокол и использовать GPU с pinned-моделью и признаками.
+See [RESULTS.md](RESULTS.md) for the historical attempt and its limitations.
+Run the pilot on a GPU machine with the pinned model and compatible features,
+following this protocol.

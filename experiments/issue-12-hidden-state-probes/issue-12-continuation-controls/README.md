@@ -1,90 +1,91 @@
-# Завершающий эксперимент: смысл продолжения или дополнительные позиции?
+# Final control: continuation meaning or additional positions?
 
-Цель: уточнить результат question-conditioned-states — почему после вопроса
-пространственные отношения лучше читаются из скрытых состояний до генерации.
-Это завершающая проверка текущей серии для направления C. Перенос декодеров,
-новый датасет и причинные вмешательства в этот эксперимент не входят.
+This experiment closes the current Direction C probe series by clarifying why
+spatial relations become more decodable after a question, before generation.
+Decoder transfer, a new dataset, and causal interventions are outside its scope.
+Measured outcomes are recorded in [RESULTS.md](RESULTS.md).
 
-## Условия
+## Conditions
 
-Для каждой ситуации `none/shuffled` извлекаются признаки в десяти условиях:
+For each `none/shuffled` situation, extract features under ten conditions:
 
-| Условие | Продолжение после ситуации |
+| Condition | Continuation after the situation |
 |---|---|
-| no_continuation | отсутствует |
-| Шесть парных вопросов | каждый из шести вопросов `Is X left of Y?` из manifest |
+| no_continuation | None |
+| Six pairwise questions | Each of the six `Is X left of Y?` questions in the manifest |
 | general_spatial | `Consider everyone's relative positions.` |
 | neutral_complete | `The passage is now complete.` |
 | neutral_sentences | `This passage contains several sentences.` |
 
-Все шесть вопросов сохранены, чтобы не выбирать лучший по прошлому тесту.
-Вопрос про leftmost не используется как продолжение: это другой тип запроса.
-При этом **во всех условиях читаются все семь целей**, включая leftmost.
+All six questions are retained to avoid selecting the best question from the
+previous test. The leftmost question is excluded as a continuation because it
+is a different query type. **All seven targets, including leftmost, are probed
+under every condition.**
 
-Продолжение добавляется через два перевода строки без `Question:`. Один и тот
-же chat template, `enable_thinking=False`, assistant prefix; никаких ответов,
-вариантов ответа или сгенерированных рассуждений. Проверка до извлечения требует
-точно одинаковой длины полного токенизированного prompt для всех девяти
-условий с продолжением, на каждой строке всех splits. При несовпадении — ошибка.
-Нулевая длина baseline намеренно отличается. Формулировки зафиксированы до
-прогона; не менять их по результатам теста.
+Append the continuation after two newlines without a `Question:` label. Use the
+same chat template, `enable_thinking=False`, and assistant prefix throughout;
+no answers, answer options, or generated reasoning are provided. Before
+extraction, require exactly equal full-prompt token lengths across all nine
+continuation conditions for every row in every split. A mismatch raises an
+error. The no-continuation baseline is intentionally shorter. Wording is fixed
+before the run and must not be tuned using test results.
 
-Предварительно локальный токенизатор Qwen3-1.7B дал ровно +6 токенов для всех
-продолжений на всех 576 ситуациях. Это только техническая предварительная
-проверка: extractor повторяет её **на настоящем pinned токенизаторе 4B**.
-Нейтральные фразы не считаются семантически пустыми: два варианта позволяют
-увидеть зависимость от формулировки, но не исчерпывают все возможные контроли.
+A preliminary local check with the available Qwen3-1.7B tokenizer found exactly
+six added tokens for every continuation on all 576 situations. This is only a
+technical preliminary check: the extractor repeats the check using the actual
+pinned 4B tokenizer. Neutral phrases are not assumed to be semantically empty.
+Two variants expose some wording dependence but do not exhaust possible controls.
 
-## Зафиксированный протокол
+## Fixed protocol
 
 - Frozen Qwen3-4B, revision `1cfa9a7208912126459214e8b04321603b3df60c`, BF16.
-- Существующий датасет `../artifacts/db`: 408/72/96 строк, 17/3/4 независимых
-  abstract-layout групп в train/validation/test. Датасет не регенерировать.
-- Новый extraction для **всех** условий, включая baseline и вопросы. Старые
-  признаки не смешивать с новыми: прежде использовался префикс `Question:`.
-- Только base transformer, без LM head и generation. Слои 8/16/28/36;
-  last nonpadding token assistant prefix и mean всех непаддинговых токенов.
-- Отдельный линейный классификатор на каждую цель и условие: 70 классификаторов.
-  Каждый выбирает pooling/layer/L2 исключительно по validation. L2: 0.0001,
-  0.001; LBFGS max_iter=100, seed=12012. Все решения фиксируются до чтения
-  тестовых признаков. Нормализация обучается только на train.
-- Ещё 70 контрольных классификаторов с одной групповой перестановкой train
-  labels на выбранной конфигурации. Это диагностический контроль, не нулевая
-  статистическая выборка.
-- Метрики: mean balanced accuracy семи целей, каждая цель отдельно, joint
-  accuracy всех целей. Семь целей логически зависимы и не описывают полный мир.
-- Парные bootstrap-интервалы: 2000 выборок групп, одни и те же группы по обе
-  стороны сравнения. Результаты условны на выбранных пробах, без поправки на
-  множественность и неопределённость обучения/выбора.
+- Existing `../artifacts/db` dataset: 408/72/96 rows and 17/3/4 independent
+  abstract-layout groups in train/validation/test. Do not regenerate it.
+- Fresh extraction for **all** conditions, including baseline and questions.
+  Do not mix old and new features: the previous protocol used `Question:`.
+- Base transformer only, without LM head or generation. Layers 8/16/28/36;
+  last nonpadding assistant-prefix token and mean over all nonpadding tokens.
+- One separate linear classifier per target and condition: 70 classifiers.
+  Each selects pooling/layer/L2 on validation only. L2: 0.0001 and 0.001;
+  LBFGS max_iter=100, seed=12012. Lock all selections before reading test
+  features. Normalization uses training data only.
+- Another 70 control classifiers use one group permutation of training labels
+  at the selected configuration. This is a diagnostic control, not a sampled
+  null distribution.
+- Metrics: mean balanced accuracy across seven targets, per-target scores,
+  and joint accuracy of all targets. The targets are logically dependent and
+  do not describe a complete world state.
+- Paired bootstrap intervals: 2,000 group draws, using the same sampled groups
+  on both sides. Intervals condition on selected probes and omit multiplicity
+  corrections and training/selection uncertainty.
 
-## Основные сравнения и интерпретация
+## Primary comparisons and interpretation
 
-1. `questions_vs_neutrals`: средний score шести вопросов минус средний score
-   двух нейтральных фраз.
-2. `general_vs_neutrals`: общая пространственная инструкция минус средний
-   score двух нейтральных фраз.
+1. `questions_vs_neutrals`: average score of the six questions minus average
+   score of the two neutral phrases.
+2. `general_vs_neutrals`: general spatial instruction minus average score of
+   the two neutral phrases.
 
-Дополнительно сохраняются оба сравнения с каждой нейтральной фразой отдельно,
-общая инструкция против среднего вопросов и каждое условие против baseline.
-Среднее считается **по метрикам**, это не ансамбль предсказаний. Вопросы и
-перефразировки не считаются дополнительными независимыми мирами.
+Also save both comparisons against each neutral phrase separately, the general
+instruction against the question average, and every condition against baseline.
+Average **metrics**, not predictions: this is not an ensemble. Questions and
+paraphrases do not count as additional independent worlds.
 
-- Вопросы лучше обоих нейтральных контролей: свидетельство вклада направленного
-  пространственного запроса сверх равной длины продолжения.
-- Общая инструкция тоже помогает: отношения можно сделать доступнее без
-  конкретного будущего вопроса, в рамках проверенной инструкции и проб.
-- Нейтральные продолжения тоже помогают: часть эффекта не требует явной
-  пространственной задачи. Это совместимо с дополнительной обработкой, но
-  само по себе не доказывает механизм «больше вычислений».
-- Небольшие или незначимые различия не доказывают эквивалентности условий.
-  Расхождение двух нейтральных контролей нужно явно отразить, не выбирать
-  удобный контроль после теста.
+- Questions outperform both neutral controls: evidence for a contribution from
+  a directed spatial query beyond equal continuation length.
+- The general instruction also helps: relations can be made more accessible
+  without specifying a particular future question, under the tested readouts.
+- Neutral continuations also help: some improvement does not require an explicit
+  spatial task. This is compatible with additional processing but does not
+  itself prove a “more computation” mechanism.
+- Small or nonsignificant differences do not establish equivalence. Report
+  disagreement between neutral controls rather than selecting a convenient
+  control after inspecting test results.
 
-Исходный текст остаётся доступен модели во время encoding; mean pooling
-включает продолжение. Ни один исход не доказывает готовое полное состояние
-мира, отсутствие такого состояния, причинное использование признаков или
-работу без исходного контекста. Четыре уже изученных тестовых мира ограничивают
-обобщение. Эти ограничения фиксируются в итоговом выводе и **не являются
-обязательством продолжать серию новыми экспериментами**.
+Source text remains available during encoding; mean pooling includes the
+continuation. No outcome establishes a complete prepared world state, its
+absence, causal use of the features, or operation without source context.
+Four previously inspected test layouts limit generalization. These limitations
+belong in the conclusion; they do not require extending this experimental series.
 
-Команды и выходные файлы: [RUNBOOK.md](RUNBOOK.md).
+Commands and output files: [RUNBOOK.md](RUNBOOK.md).

@@ -1,12 +1,13 @@
-# Запуск на машине с GPU
+# Running on a GPU machine
 
-Все команды выполняются из корня репозитория. Требуются существующий `.venv`
-с PyTorch/Transformers и датасет `experiments/issue-12-hidden-state-probes/artifacts/db`
-с `manifest.json`, `train.jsonl`, `validation.jsonl`, `test.jsonl`.
-Датасет находится в игнорируемом artifacts: при переносе репозитория его нужно
-скопировать отдельно. Старые feature caches для этого эксперимента не нужны.
+Run all commands from the repository root. Requirements: the existing `.venv`
+with PyTorch/Transformers, and the dataset at
+`experiments/issue-12-hidden-state-probes/artifacts/db`, containing
+`manifest.json`, `train.jsonl`, `validation.jsonl`, and `test.jsonl`.
+The dataset is in an ignored artifacts directory: copy it separately when
+transferring the repository. Previous feature caches are not needed.
 
-## 1. Проверка
+## 1. Checks
 
 ```bash
 continuation_root='experiments/issue-12-hidden-state-probes/issue-12-continuation-controls'
@@ -20,11 +21,11 @@ continuation_db='experiments/issue-12-hidden-state-probes/artifacts/db'
 .venv/bin/python -c 'import torch; print("CUDA:", torch.cuda.is_available()); assert torch.cuda.is_available()'
 ```
 
-Аудит должен показать 408/72/96 строк. Тесты используют маленькую случайную
-Qwen: это проверка кода, не результат исследования.
+The audit should report 408/72/96 rows. Tests use a small randomly initialized
+Qwen; they validate the implementation, not research performance.
 
-Extractor загружает pinned модель только из локального HF-cache. Если её ещё
-нет, отдельно скачать на GPU-машине:
+The extractor loads the pinned model only from the local HF cache. If it is not
+already cached, download it separately on the GPU machine:
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -37,7 +38,7 @@ snapshot_download(
 PY
 ```
 
-## 2. Извлечение признаков на GPU
+## 2. Extract features on GPU
 
 ```bash
 mkdir -p "$continuation_root/artifacts/logs"
@@ -51,17 +52,17 @@ set -o pipefail
   2>&1 | tee "$continuation_root/artifacts/logs/extract.log"
 ```
 
-При OOM уменьшить batch size до 1 и указать **новую** output directory;
-существующие каталоги намеренно не перезаписываются. Автоматического resume
-нет. Обрезание текста запрещено. Ошибка длины продолжений требует проверки
-токенизатора/протокола до запуска, а не отключения проверки.
+On OOM, reduce batch size to 1 and use a **new** output directory. Existing
+directories are deliberately not overwritten. Automatic resume is not supported.
+Truncation is forbidden. A continuation-length error requires checking the
+tokenizer/protocol before running, rather than disabling the check.
 
-Успешное окончание создаёт `features-qwen3-4b/manifest.json`. В manifest:
-точные продолжения, аудит длины, dataset hashes, hashes признаков и prompts,
-revision модели, версии библиотек. Незавершённый cache без manifest не годится
-для обучения проб.
+Successful completion creates `features-qwen3-4b/manifest.json`, recording exact
+continuations, the length audit, dataset hashes, feature/prompt hashes, model
+revision, and library versions. An incomplete cache without this manifest cannot
+be used to train probes.
 
-## 3. Обучение проб и сравнения на CPU
+## 3. Train probes and compute comparisons on CPU
 
 ```bash
 .venv/bin/python -u "$continuation_root/probe_controls.py" \
@@ -75,24 +76,23 @@ revision модели, версии библиотек. Незавершённы
   2>&1 | tee "$continuation_root/artifacts/logs/probes.log"
 ```
 
-GPU на этом шаге не нужна. Сначала выбираются все 70 проб на train/validation,
-затем открывается test. Не подбирать параметры по итоговому test.
+This step does not need a GPU. All 70 probes are selected on train/validation
+before test features are opened. Do not tune parameters on final test results.
 
-## Что смотреть и передать для обсуждения
+## Outputs to inspect and share
 
-В `artifacts/probes-qwen3-4b/`:
+In `artifacts/probes-qwen3-4b/`:
 
-- `SUMMARY.md` — готовые таблицы метрик и парных разниц;
-- `report.json` — полный отчёт, конфигурации, метрики по каждой цели, интервалы;
-- `test_predictions.jsonl` — 960 строк (10 условий × 96 ситуаций);
-- `selection.json` — решения по validation, записанные до открытия test;
-- 140 `.pt` — 70 основных и 70 shuffled-label классификаторов.
+- `SUMMARY.md`: generated metric tables and paired differences;
+- `report.json`: full report, configurations, per-target metrics, and intervals;
+- `test_predictions.jsonl`: 960 rows (10 conditions × 96 situations);
+- `selection.json`: validation choices recorded before opening test;
+- 140 `.pt` files: 70 real-label and 70 shuffled-label classifiers.
 
-В первую очередь читать `questions_vs_neutrals` и `general_vs_neutrals`, затем
-их сравнения с каждым нейтральным контролем отдельно. Проверить, улучшились
-ли нейтральные условия относительно `no_continuation`. Не делать вывод о
-равенстве условий только потому, что интервал включает ноль.
+Read `questions_vs_neutrals` and `general_vs_neutrals` first, then their contrasts
+with each neutral control separately. Check whether neutral conditions improve
+over `no_continuation`. An interval containing zero does not establish equality.
 
-Для разбора результатов достаточно сначала передать `SUMMARY.md`,
-`report.json`, `test_predictions.jsonl` и feature `manifest.json`. Сохранить
-также полный cache, checkpoints и логи для воспроизводимости.
+For initial review, share `SUMMARY.md`, `report.json`, `test_predictions.jsonl`,
+and the feature `manifest.json`. Preserve the complete cache, checkpoints, and
+logs for reproducibility. The recorded run is discussed in [RESULTS.md](RESULTS.md).

@@ -206,6 +206,9 @@ artifacts/*
 datasets/repro/*.jsonl
 datasets/repro/.cache/
 
+# Deterministically generated spatial-probe rows; leave manifest.json visible to Git.
+datasets/issue-12-spatial-probes/*.jsonl
+
 # Visual Studio Code
 #   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore that
 #   can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
